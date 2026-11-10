@@ -320,9 +320,15 @@ function avisos(k) {
     const total = suyos.reduce((s, t) => { const [a, b] = rango(t); return s + b - a; }, 0);
     if (total > S.maxSemana * 60) out.push({ n: 'ambar', d: -1, txt: `${p.nombre} va en ${horas(total)} esta semana y tu máximo es ${S.maxSemana} h.` });
     if (new Set(suyos.map(t => t.d)).size === 7) out.push({ n: 'ambar', d: -1, txt: `${p.nombre} trabaja los 7 días y no tiene día libre.` });
+    for (let d = 0; d < 7; d++) {
+      const delDia = suyos.filter(t => t.d === d);
+      const suma = delDia.reduce((s, t) => { const [a, b] = rango(t); return s + b - a; }, 0);
+      if (suma > S.maxTurno * 60) out.push({ n: 'ambar', d, txt: delDia.length > 1
+        ? `${p.nombre} el ${DIAS[d].toLowerCase()} suma ${horas(suma)} entre sus ${delDia.length} partes y tu máximo es ${S.maxTurno} h.`
+        : `El turno de ${p.nombre} el ${DIAS[d].toLowerCase()} es de ${horas(suma)} y tu máximo es ${S.maxTurno} h.` });
+    }
     for (const t of suyos) {
       const [a, b] = rango(t), d = t.d;
-      if (b - a > S.maxTurno * 60) out.push({ n: 'ambar', d, txt: `El turno de ${p.nombre} el ${DIAS[d].toLowerCase()} es de ${horas(b - a)} y tu máximo es ${S.maxTurno} h.` });
       if ((p.noPuede || []).includes(d)) out.push({ n: 'ambar', d, txt: `Pusiste a ${p.nombre} el ${DIAS[d].toLowerCase()}, pero ese día no puede.` });
       const w = ventana(d);
       if (w && a < w[0]) out.push({ n: 'ambar', d, txt: `El turno de ${p.nombre} el ${DIAS[d].toLowerCase()} empieza antes de abrir (abres a las ${hora(w[0])}).` });
@@ -451,7 +457,8 @@ function vistaSemana() {
           <span class="quien">${esc(p ? p.nombre : 'Sin persona')}</span>
           <span class="cuando">${hora(a)} a ${hora(b)}<small>${horas(b - a)}${b > 1440 ? ' · sale al día siguiente' : ''}</small></span></button>`;
       }).join('')}
-      <button class="agregar" data-a="nuevo" data-d="${d}">+ Agregar turno</button>
+      <div class="dos"><button class="agregar" data-a="nuevo" data-d="${d}">+ Agregar turno</button>
+        <button class="agregar" data-a="nuevo-partido" data-d="${d}">+ Turno partido</button></div>
     </section>`;
   }
 
@@ -529,7 +536,7 @@ function vistaAjustes() {
     </div>
     <div class="tarjeta"><h2>Límites</h2><p class="ayuda">La app te avisa cuando alguien pase de aquí, pero no te bloquea.</p>
       <div class="fila"><div class="nom"><strong>Horas por semana</strong><span>Máximo legal en Colombia: 42</span></div>${paso('maxSemana', S.maxSemana, ' h')}</div>
-      <div class="fila"><div class="nom"><strong>Turno más largo</strong><span>Más que esto sale como aviso</span></div>${paso('maxTurno', S.maxTurno, ' h')}</div>
+      <div class="fila"><div class="nom"><strong>Turno más largo</strong><span>Más que esto sale como aviso. En un turno partido cuenta las dos partes juntas</span></div>${paso('maxTurno', S.maxTurno, ' h')}</div>
       <div class="fila"><div class="nom"><strong>Largo normal de un turno</strong><span>El que usa "Sugerir horario"</span></div>${paso('turnoNormal', S.turnoNormal, ' h')}</div>
     </div>
     <div class="tarjeta"><h2>Copia de respaldo</h2><p class="ayuda">Tus horarios viven en este celular. Guarda una copia de vez en cuando (por ejemplo, mándatela por WhatsApp) por si cambias de celular o se borra el navegador.</p>
@@ -576,25 +583,33 @@ function cerrarHoja(desdeAtras) {
 // El botón "atrás" de Android cierra la ventana en vez de salirse de la app.
 window.addEventListener('popstate', () => { if (hojaAbierta) cerrarHoja(true); });
 
-function hojaTurno(t, dia) {
+function hojaTurno(t, dia, partido) {
   const nuevo = !t;
   const d0 = nuevo ? dia : t.d;
   const w = ventana(d0) || [aMin('06:00'), aMin('14:00')];
   const L = S.turnoNormal * 60;
-  const ini = nuevo ? hhmm(w[0]) : t.ini, fin = nuevo ? hhmm(Math.min(w[0] + L, w[1])) : t.fin;
+  const ini = nuevo ? hhmm(w[0]) : t.ini, fin = nuevo ? hhmm(Math.min(w[0] + (partido ? L / 2 : L), w[1])) : t.fin;
+  // La segunda parte arranca por defecto al final del día, para que el hueco del medio quede a la vista.
+  const ini2 = hhmm(Math.max(w[1] - L / 2, aMin(fin))), fin2 = hhmm(w[1]);
   const opciones = S.personas.map(p => `<option value="${p.id}" ${t && t.p === p.id ? 'selected' : ''}>${esc(p.nombre)}${(p.noPuede || []).includes(d0) ? ' (ese día no puede)' : ''}</option>`).join('');
-  abrirHoja(`<form data-f="turno" novalidate data-id="${t ? t.id : ''}">
-    <h2>${nuevo ? `Nuevo turno · ${DIAS[d0]}` : 'Cambiar turno'}</h2>
+  abrirHoja(`<form data-f="turno" novalidate data-id="${t ? t.id : ''}" data-partido="${partido ? 1 : ''}">
+    <h2>${partido ? `Turno partido · ${DIAS[d0]}` : nuevo ? `Nuevo turno · ${DIAS[d0]}` : 'Cambiar turno'}</h2>
     <label class="campo"><span>¿Quién?</span><select name="p" required>${nuevo ? '<option value="">Escoge a una persona</option>' : ''}${opciones}</select></label>
+    ${partido ? '<p style="font-weight:600;margin:12px 0 0">Primera parte</p>' : ''}
     <div class="dos">
       <label class="campo"><span>Entra</span><input type="time" name="ini" value="${ini}" required></label>
       <label class="campo"><span>Sale</span><input type="time" name="fin" value="${fin}" required></label>
     </div>
+    ${partido ? `<p style="font-weight:600;margin:12px 0 0">Segunda parte</p>
+    <div class="dos">
+      <label class="campo"><span>Vuelve a entrar</span><input type="time" name="ini2" value="${ini2}" required></label>
+      <label class="campo"><span>Sale</span><input type="time" name="fin2" value="${fin2}" required></label>
+    </div>` : ''}
     <p style="font-weight:600;margin:12px 0 6px">${nuevo ? 'Días (puedes marcar varios)' : 'Día'}</p>
     <div class="chips" data-dias="${nuevo ? 'varios' : 'uno'}">${DIAS_C.map((n, d) => `<button type="button" class="chip" data-a="chip-dia" data-d="${d}" aria-pressed="${d === d0}">${n}</button>`).join('')}</div>
     <div class="error" id="err" hidden></div>
     <div class="botones">
-      <button class="btn prim" type="submit">${nuevo ? 'Guardar turno' : 'Guardar cambios'}</button>
+      <button class="btn prim" type="submit">${partido ? 'Guardar turno partido' : nuevo ? 'Guardar turno' : 'Guardar cambios'}</button>
       ${nuevo ? '' : '<button class="btn peligro" type="button" data-a="borrar-turno">Borrar turno</button>'}
       <button class="btn texto" type="button" data-a="cerrar">Cancelar</button>
     </div></form>`);
@@ -746,6 +761,7 @@ document.addEventListener('click', e => {
       break;
     }
     case 'nuevo': hojaTurno(null, +el.dataset.d); break;
+    case 'nuevo-partido': hojaTurno(null, +el.dataset.d, true); break;
     case 'editar': hojaTurno(turnosDe(semana).find(t => t.id === el.dataset.id)); break;
     case 'chip-dia': {
       const grupo = el.parentElement;
@@ -881,15 +897,24 @@ document.addEventListener('submit', e => {
     if (!ini || !fin) return mal('Pon la hora de entrada y la de salida.');
     if (ini === fin) return mal('La hora de salida no puede ser igual a la de entrada.');
     if (!dias.length) return mal('Marca al menos un día.');
+    let partes = [[ini, fin]];
+    if (f.dataset.partido) {
+      const ini2 = f.ini2.value, fin2 = f.fin2.value;
+      if (!ini2 || !fin2) return mal('Pon la hora de entrada y la de salida de la segunda parte.');
+      if (ini2 === fin2) return mal('En la segunda parte, la salida no puede ser igual a la entrada.');
+      const [, b1] = rango({ ini, fin }), a2 = aMin(ini2);
+      if (b1 > 1440 || a2 < b1) return mal('La segunda parte tiene que empezar después de que termine la primera.');
+      partes.push([ini2, fin2]);
+    }
     recordar();
     const lista = turnosDe(semana).slice();
     if (f.dataset.id) {
       const i = lista.findIndex(t => t.id === f.dataset.id);
       lista[i] = { ...lista[i], p, ini, fin, d: dias[0] };
-    } else dias.forEach(d => lista.push({ id: uid(), p, d, ini, fin }));
+    } else dias.forEach(d => partes.forEach(([ini, fin]) => lista.push({ id: uid(), p, d, ini, fin })));
     S.semanas[semana] = lista;
     guardar(); cerrarHoja(); pintar();
-    aviso(f.dataset.id ? 'Turno cambiado.' : dias.length > 1 ? `Listo: ${dias.length} turnos agregados.` : 'Turno agregado.', true);
+    aviso(f.dataset.id ? 'Turno cambiado.' : partes.length > 1 ? (dias.length > 1 ? `Listo: turno partido en ${dias.length} días.` : 'Turno partido agregado.') : dias.length > 1 ? `Listo: ${dias.length} turnos agregados.` : 'Turno agregado.', true);
   }
 });
 

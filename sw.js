@@ -1,5 +1,5 @@
 // Sube la versión cada vez que cambie un archivo, para que el celular baje lo nuevo.
-const VERSION = 'horarios-v2';
+const VERSION = 'horarios-v3';
 const ARCHIVOS = ['./', 'index.html', 'manifest.json', 'exceljs.min.js', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
