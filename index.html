@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1E6B5E">
+<meta name="color-scheme" content="light">
+<title>Horarios de cocina</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fondo:#F3F5F2;
+  --papel:#FFFFFF;
+  --tinta:#1C2321;
+  --suave:#5B6662;
+  --linea:#D9DFDB;
+  --azulejo:#1E6B5E;
+  --azulejo-osc:#154D44;
+  --azulejo-claro:#E3EFEC;
+  --rojo:#B42318;
+  --rojo-claro:#FDECEA;
+  --ambar:#9A4B05;
+  --ambar-claro:#FEF3E2;
+  --radio:14px;
+  --fuente:"Atkinson Hyperlegible Next",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--fuente);font-size:17px;line-height:1.45;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--azulejo);outline-offset:2px}
+main{max-width:640px;margin:0 auto;padding:16px 16px 24px}
+h1{font-size:1.6rem;line-height:1.15;margin:0;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.25rem;margin:0 0 4px;font-weight:700}
+h3{font-size:1.05rem;margin:0;font-weight:700}
+p{margin:0}
+.hola{color:var(--suave);font-size:1rem}
+.cabeza{padding:8px 0 16px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 18px;border-radius:12px;border:1.5px solid var(--linea);background:var(--papel);font-weight:600;text-align:center}
+.btn:active{transform:scale(.98)}
+.btn.prim{background:var(--azulejo);border-color:var(--azulejo);color:#fff}
+.btn.prim:active{background:var(--azulejo-osc)}
+.btn.peligro{color:var(--rojo);border-color:#F1C4BF}
+.btn.texto{border-color:transparent;background:transparent;color:var(--azulejo);padding:10px 8px}
+.btn.ancho{width:100%}
+.btn[disabled]{opacity:.45}
+
+.semana-nav{display:flex;align-items:center;gap:8px;background:var(--papel);border:1px solid var(--linea);border-radius:var(--radio);padding:6px}
+.semana-nav .flecha{width:48px;height:48px;border-radius:10px;border:0;background:var(--azulejo-claro);color:var(--azulejo-osc);font-size:1.4rem;font-weight:700;flex:none}
+.semana-nav .centro{flex:1;text-align:center}
+.semana-nav strong{display:block;font-size:1.05rem}
+.semana-nav span{color:var(--suave);font-size:.9rem}
+.semana-nav .hoy{border:0;background:none;color:var(--azulejo);font-weight:600;text-decoration:underline;padding:0}
+
+.acciones{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.acciones .grande{grid-column:1/-1}
+
+.avisos{border-radius:var(--radio);margin-bottom:16px;overflow:hidden;border:1.5px solid}
+.avisos.ok{background:var(--azulejo-claro);border-color:#B9D6CF}
+.avisos.mal{background:var(--rojo-claro);border-color:#F1C4BF}
+.avisos.medio{background:var(--ambar-claro);border-color:#F5D6A8}
+.avisos>button{width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border:0;background:none;text-align:left;font-weight:700;min-height:56px}
+.avisos>button .flechita{margin-left:auto;transition:transform .2s}
+.avisos.abierto>button .flechita{transform:rotate(180deg)}
+.avisos ul{list-style:none;margin:0;padding:0 8px 8px}
+.avisos li button{width:100%;text-align:left;border:0;background:var(--papel);border-radius:10px;padding:12px 14px;margin-top:6px;display:flex;gap:10px;align-items:flex-start;font-size:.97rem;line-height:1.35}
+.punto{width:12px;height:12px;border-radius:50%;flex:none;margin-top:5px}
+.punto.rojo{background:var(--rojo)}
+.punto.ambar{background:#D97706}
+.punto.gris{background:#9AA5A0}
+
+.dia{background:var(--papel);border:1px solid var(--linea);border-radius:var(--radio);padding:14px 14px 8px;margin-bottom:12px;scroll-margin-top:12px}
+.dia.cerrado{opacity:.75}
+.dia-cab{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.dia-cab .fecha{color:var(--suave);font-weight:400}
+.dia-cab .hor{margin-left:auto;color:var(--suave);font-size:.9rem}
+.marca{display:inline-block;font-size:.8rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--rojo-claro);color:var(--rojo)}
+.marca.ambar{background:var(--ambar-claro);color:var(--ambar)}
+
+/* La tira de cobertura: lo primero que se ve de cada día — dónde falta gente */
+.tira{display:flex;height:22px;border-radius:7px;overflow:hidden;margin:10px 0 2px;border:1px solid var(--linea)}
+.tira i{display:block;height:100%}
+.tira i.falta{background:repeating-linear-gradient(135deg,var(--rojo) 0 5px,#F6B8B1 5px 10px)}
+.tira-eti{display:flex;justify-content:space-between;color:var(--suave);font-size:.8rem;margin-bottom:6px}
+
+.turno{width:100%;display:flex;align-items:center;gap:12px;border:0;border-left:8px solid;border-radius:10px;padding:10px 12px;margin:6px 0;text-align:left;min-height:52px}
+.turno .quien{font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.turno .cuando{font-size:.95rem;text-align:right}
+.turno .cuando small{display:block;font-size:.78rem;opacity:.8}
+.agregar{width:100%;border:1.5px dashed var(--linea);background:none;border-radius:10px;min-height:48px;color:var(--azulejo);font-weight:700;margin:6px 0}
+
+.tarjeta{background:var(--papel);border:1px solid var(--linea);border-radius:var(--radio);padding:16px;margin-bottom:14px}
+.tarjeta>p.ayuda{color:var(--suave);font-size:.95rem;margin:2px 0 12px}
+.fila{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--linea)}
+.fila:first-of-type{border-top:0}
+.fila .nom{flex:1;min-width:0}
+.fila .nom strong{display:block}
+.fila .nom span{color:var(--suave);font-size:.9rem}
+.persona-btn{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:0;background:none;padding:12px 4px;border-top:1px solid var(--linea);min-height:60px}
+.persona-btn:first-of-type{border-top:0}
+.inicial{width:40px;height:40px;border-radius:50%;background:var(--azulejo-claro);color:var(--azulejo-osc);display:grid;place-items:center;font-weight:800;flex:none}
+
+label.campo{display:block;margin:12px 0}
+label.campo>span{display:block;font-weight:600;margin-bottom:6px}
+input[type=text],input[type=time],select{width:100%;min-height:50px;padding:10px 12px;border:1.5px solid var(--linea);border-radius:10px;background:#fff;font-size:1.05rem}
+input[type=time]{min-width:0}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;min-width:52px;padding:8px 12px;border-radius:99px;border:1.5px solid var(--linea);background:#fff;font-weight:600}
+.chip[aria-pressed=true]{background:var(--azulejo);border-color:var(--azulejo);color:#fff}
+.paso{display:flex;align-items:center;gap:6px}
+.paso button{width:44px;height:44px;border-radius:10px;border:1.5px solid var(--linea);background:#fff;font-size:1.3rem;font-weight:700}
+.paso output{min-width:48px;text-align:center;font-weight:700;font-size:1.1rem}
+.color{width:36px;height:36px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px var(--linea)}
+.color[aria-pressed=true]{box-shadow:0 0 0 3px var(--tinta)}
+.franja{border-top:1px solid var(--linea);padding:12px 0}
+.franja:first-of-type{border-top:0}
+.interruptor{display:flex;align-items:center;gap:10px;min-height:44px}
+.interruptor input{width:24px;height:24px;accent-color:var(--azulejo)}
+.vacio{text-align:center;padding:28px 16px;color:var(--suave)}
+.vacio strong{display:block;color:var(--tinta);font-size:1.1rem;margin-bottom:4px}
+
+nav.abajo{position:fixed;left:0;right:0;bottom:0;background:var(--papel);border-top:1px solid var(--linea);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav.abajo div{display:flex;width:100%;max-width:640px}
+nav.abajo button{flex:1;border:0;background:none;min-height:64px;font-weight:600;color:var(--suave);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.9rem}
+nav.abajo button svg{width:24px;height:24px}
+nav.abajo button[aria-current=page]{color:var(--azulejo);box-shadow:inset 0 3px 0 var(--azulejo)}
+
+.velo{position:fixed;inset:0;background:rgba(20,30,27,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.hoja{background:var(--papel);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));animation:sube .22s ease-out}
+@keyframes sube{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.hoja{animation:none}.avisos>button .flechita{transition:none}}
+.hoja h2{margin-bottom:6px}
+.hoja .botones{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.error{background:var(--rojo-claro);color:var(--rojo);border-radius:10px;padding:10px 12px;margin-top:10px;font-weight:600}
+
+.toast{position:fixed;left:16px;right:16px;bottom:calc(80px + env(safe-area-inset-bottom));max-width:600px;margin:0 auto;background:var(--tinta);color:#fff;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;z-index:30;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.toast p{flex:1}
+.toast button{border:0;background:none;color:#9FE3D4;font-weight:800;min-height:44px;padding:0 6px}
+.nota{color:var(--suave);font-size:.9rem;margin-top:8px}
+.leyenda{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 14px;color:var(--suave);font-size:.9rem}
+.leyenda span{display:inline-flex;align-items:center;gap:6px}
+.leyenda b{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav class="abajo" aria-label="Secciones"><div id="nav"></div></nav>
+<div id="capa"></div>
+
+<script>
+'use strict';
+const KEY = 'horarios-cocina-v1';
+const DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const DIAS_C = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MESES_C = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const PALETA = ['#FDE68A','#FDBA74','#A5B4FC','#86EFAC','#F9A8D4','#7DD3FC','#C4B5FD','#FCA5A5'];
+const SIN_FRANJA = '#E5E7EB';
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const pad = n => String(n).padStart(2, '0');
+const aMin = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+const hhmm = n => { n = ((n % 1440) + 1440) % 1440; return pad(Math.floor(n / 60)) + ':' + pad(n % 60); };
+const hora = n => { n = ((n % 1440) + 1440) % 1440; let h = Math.floor(n / 60); const ap = h < 12 ? 'am' : 'pm'; h = h % 12 || 12; return h + ':' + pad(n % 60) + ' ' + ap; };
+const horas = min => { const h = min / 60; return (Number.isInteger(h) ? h : h.toFixed(1).replace('.', ',')) + ' h'; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Si la salida es igual o antes que la entrada, el turno termina al día siguiente.
+const rango = t => { const a = aMin(t.ini); let b = aMin(t.fin); if (b <= a) b += 1440; return [a, b]; };
+
+function estadoNuevo() {
+  return {
+    v: 1, nombre: 'Yuyu', lugar: 'Obrero Casa de Pan',
+    dias: DIAS.map(() => ({ abre: '06:00', cierra: '22:00', cerrado: false })),
+    franjas: [
+      { id: uid(), nombre: 'Mañana', desde: '06:00', hasta: '12:00', color: '#FDE68A', min: 1 },
+      { id: uid(), nombre: 'Tarde', desde: '12:00', hasta: '18:00', color: '#FDBA74', min: 1 },
+      { id: uid(), nombre: 'Noche', desde: '18:00', hasta: '22:00', color: '#A5B4FC', min: 1 },
+    ],
+    maxSemana: 42, maxTurno: 12, turnoNormal: 8,
+    personas: [], semanas: {},
+  };
+}
+
+let guardadoOk = true;
+function cargar() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return Object.assign(estadoNuevo(), JSON.parse(raw));
+  } catch (e) { guardadoOk = false; }
+  return estadoNuevo();
+}
+function guardar() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); guardadoOk = true; }
+  catch (e) { guardadoOk = false; }
+}
+
+let S = cargar();
+const lunesDe = f => { const d = new Date(f.getFullYear(), f.getMonth(), f.getDate()); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d; };
+const clave = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const deClave = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const masDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const claveMas = (k, n) => clave(masDias(deClave(k), n));
+const HOY = clave(lunesDe(new Date()));
+let semana = HOY;
+let pestana = 'semana';
+let avisosAbiertos = false;
+
+const turnosDe = k => S.semanas[k] || [];
+const persona = id => S.personas.find(p => p.id === id);
+
+function ventana(d) {
+  const x = S.dias[d];
+  if (x.cerrado) return null;
+  const a = aMin(x.abre); let b = aMin(x.cierra);
+  if (b <= a) b += 1440;
+  return [a, b];
+}
+function franjaEn(t) {
+  t = ((t % 1440) + 1440) % 1440;
+  return S.franjas.find(f => {
+    const a = aMin(f.desde), b = aMin(f.hasta);
+    return a < b ? t >= a && t < b : t >= a || t < b;
+  });
+}
+const necesarios = t => { const f = franjaEn(t); return f ? f.min : 1; };
+const colorTurno = t => { const f = franjaEn(aMin(t.ini)); return f ? f.color : SIN_FRANJA; };
+
+// Todo en minutos desde el lunes 00:00 de la semana; se suman las semanas vecinas
+// para que un turno de domingo en la noche cuente en la madrugada del lunes.
+function intervalos(k, lista) {
+  const out = [];
+  const meter = (arr, off) => arr.forEach(t => { const [a, b] = rango(t); out.push({ t, a: off + t.d * 1440 + a, b: off + t.d * 1440 + b, off }); });
+  meter(lista || turnosDe(k), 0);
+  meter(turnosDe(claveMas(k, -7)), -7 * 1440);
+  meter(turnosDe(claveMas(k, 7)), 7 * 1440);
+  return out;
+}
+function genteEn(ivs, A) {
+  const s = new Set();
+  for (const i of ivs) if (i.a <= A && A < i.b) s.add(i.t.p);
+  return s.size;
+}
+function huecosDia(d, ivs) {
+  const w = ventana(d); if (!w) return [];
+  const out = []; let cur = null;
+  for (let t = w[0]; t < w[1]; t += 5) {
+    const need = necesarios(t), have = genteEn(ivs, d * 1440 + t);
+    if (have < need) {
+      if (cur && cur.b === t && cur.need === need && cur.have === have) cur.b = t + 5;
+      else { cur = { a: t, b: t + 5, need, have }; out.push(cur); }
+    }
+  }
+  return out;
+}
+
+function avisos(k) {
+  const lista = turnosDe(k), ivs = intervalos(k), out = [];
+  for (let d = 0; d < 7; d++) {
+    if (S.dias[d].cerrado && lista.some(t => t.d === d))
+      out.push({ n: 'ambar', d, txt: `El ${DIAS[d].toLowerCase()} está marcado como cerrado, pero tiene turnos.` });
+    for (const h of huecosDia(d, ivs)) {
+      const txt = h.have === 0
+        ? `${DIAS[d]} de ${hora(h.a)} a ${hora(h.b)}: no hay nadie.`
+        : `${DIAS[d]} de ${hora(h.a)} a ${hora(h.b)}: hay ${h.have} ${h.have === 1 ? 'persona' : 'personas'} y necesitas ${h.need}.`;
+      out.push({ n: 'rojo', d, txt });
+    }
+  }
+  for (const p of S.personas) {
+    const mios = ivs.filter(i => i.t.p === p.id).sort((x, y) => x.a - y.a);
+    for (let i = 0; i < mios.length; i++) for (let j = i + 1; j < mios.length; j++) {
+      const A = mios[i], B = mios[j];
+      if (B.a >= A.b) break;
+      if (A.off !== 0 && B.off !== 0) continue;
+      const dia = (B.off === 0 ? B : A).t.d;
+      out.push({ n: 'rojo', d: dia, txt: `A ${p.nombre} le quedaron dos turnos que se cruzan el ${DIAS[dia].toLowerCase()} (${hora(aMin(A.t.ini))} a ${hora(aMin(A.t.fin))} y ${hora(aMin(B.t.ini))} a ${hora(aMin(B.t.fin))}).` });
+    }
+    const suyos = lista.filter(t => t.p === p.id);
+    if (lista.length && !suyos.length) { out.push({ n: 'gris', d: -1, txt: `${p.nombre} no tiene turnos esta semana. Si es a propósito, no pasa nada.` }); continue; }
+    const total = suyos.reduce((s, t) => { const [a, b] = rango(t); return s + b - a; }, 0);
+    if (total > S.maxSemana * 60) out.push({ n: 'ambar', d: -1, txt: `${p.nombre} va en ${horas(total)} esta semana y tu máximo es ${S.maxSemana} h.` });
+    if (new Set(suyos.map(t => t.d)).size === 7) out.push({ n: 'ambar', d: -1, txt: `${p.nombre} trabaja los 7 días y no tiene día libre.` });
+    for (const t of suyos) {
+      const [a, b] = rango(t), d = t.d;
+      if (b - a > S.maxTurno * 60) out.push({ n: 'ambar', d, txt: `El turno de ${p.nombre} el ${DIAS[d].toLowerCase()} es de ${horas(b - a)} y tu máximo es ${S.maxTurno} h.` });
+      if ((p.noPuede || []).includes(d)) out.push({ n: 'ambar', d, txt: `Pusiste a ${p.nombre} el ${DIAS[d].toLowerCase()}, pero ese día no puede.` });
+      const w = ventana(d);
+      if (w && a < w[0]) out.push({ n: 'ambar', d, txt: `El turno de ${p.nombre} el ${DIAS[d].toLowerCase()} empieza antes de abrir (abres a las ${hora(w[0])}).` });
+      if (w && b > w[1]) out.push({ n: 'ambar', d, txt: `El turno de ${p.nombre} el ${DIAS[d].toLowerCase()} termina después de cerrar (cierras a las ${hora(w[1])}).` });
+    }
+  }
+  const peso = { rojo: 0, ambar: 1, gris: 2 };
+  return out.sort((x, y) => peso[x.n] - peso[y.n] || x.d - y.d);
+}
+
+// Sugerir: busca la primera hora del día con menos gente de la necesaria, arma ahí
+// un turno del largo normal y se lo da a quien lleve menos horas en la semana.
+function sugerir(modo) {
+  const k = semana;
+  const lista = modo === 'cero' ? [] : turnosDe(k).map(t => ({ ...t }));
+  const L = Math.min(S.turnoNormal, S.maxTurno) * 60;
+  const min = {}, dias = {};
+  S.personas.forEach(p => { min[p.id] = 0; dias[p.id] = new Set(); });
+  lista.forEach(t => { if (min[t.p] == null) return; const [a, b] = rango(t); min[t.p] += b - a; dias[t.p].add(t.d); });
+  const giro = Math.round(deClave(k).getTime() / 6048e5);
+  const orden = p => (S.personas.indexOf(p) + giro) % S.personas.length;
+  let creados = 0, falto = false;
+  for (let d = 0; d < 7; d++) {
+    const w = ventana(d); if (!w) continue;
+    const imposible = new Set();
+    for (let vuelta = 0; vuelta < 500; vuelta++) {
+      const ivs = intervalos(k, lista);
+      let t = null;
+      for (let x = w[0]; x < w[1]; x += 5) {
+        if (!imposible.has(x) && genteEn(ivs, d * 1440 + x) < necesarios(x)) { t = x; break; }
+      }
+      if (t === null) break;
+      const fin = Math.min(t + L, w[1]), ini = Math.max(w[0], fin - L), largo = fin - ini;
+      const A = d * 1440 + ini, B = d * 1440 + fin;
+      const cand = S.personas.filter(p =>
+        !(p.noPuede || []).includes(d) && !dias[p.id].has(d) && dias[p.id].size < 6 &&
+        min[p.id] + largo <= S.maxSemana * 60 &&
+        !ivs.some(i => i.t.p === p.id && i.a < B && A < i.b));
+      if (!cand.length) { for (let x = t; x < fin; x += 5) imposible.add(x); falto = true; continue; }
+      cand.sort((x, y) => min[x.id] - min[y.id] || dias[x.id].size - dias[y.id].size || orden(x) - orden(y));
+      const p = cand[0];
+      lista.push({ id: uid(), p: p.id, d, ini: hhmm(ini), fin: hhmm(fin) });
+      min[p.id] += largo; dias[p.id].add(d); creados++;
+    }
+  }
+  recordar();
+  S.semanas[k] = lista;
+  guardar(); pintar();
+  let msg = creados ? `Listo: armé ${creados} ${creados === 1 ? 'turno' : 'turnos'}. Revísalos y cambia lo que quieras.` : 'No hizo falta agregar turnos.';
+  if (falto) msg += ' No alcanzó la gente para cubrir todo: mira los avisos.';
+  aviso(msg, true);
+}
+
+let copia = null;
+const recordar = () => { copia = JSON.stringify(S); };
+function deshacer() { if (!copia) return; S = JSON.parse(copia); copia = null; guardar(); pintar(); aviso('Listo, quedó como estaba.'); }
+
+let temporizador;
+function aviso(msg, conDeshacer) {
+  clearTimeout(temporizador);
+  const el = document.getElementById('toast') || Object.assign(document.createElement('div'), { id: 'toast', className: 'toast' });
+  el.setAttribute('role', 'status');
+  el.innerHTML = `<p>${esc(msg)}</p>${conDeshacer && copia ? '<button data-a="deshacer">Deshacer</button>' : ''}<button data-a="cerrar-toast" aria-label="Cerrar">✕</button>`;
+  document.body.appendChild(el);
+  temporizador = setTimeout(() => el.remove(), conDeshacer ? 9000 : 4000);
+}
+
+function textoSemana(k) {
+  const a = deClave(k), b = masDias(a, 6);
+  if (a.getMonth() === b.getMonth()) return `${a.getDate()} al ${b.getDate()} de ${MESES[a.getMonth()]}`;
+  return `${a.getDate()} de ${MESES[a.getMonth()]} al ${b.getDate()} de ${MESES[b.getMonth()]}`;
+}
+function cualSemana(k) {
+  const dif = Math.round((deClave(k) - deClave(HOY)) / 6048e5);
+  if (dif === 0) return 'Esta semana';
+  if (dif === 1) return 'La semana que viene';
+  if (dif === -1) return 'La semana pasada';
+  return dif > 0 ? `En ${dif} semanas` : `Hace ${-dif} semanas`;
+}
+
+function tira(d, ivs) {
+  const w = ventana(d); if (!w) return '';
+  const total = w[1] - w[0], partes = [];
+  let cur = null;
+  for (let t = w[0]; t < w[1]; t += 5) {
+    const falta = genteEn(ivs, d * 1440 + t) < necesarios(t);
+    const f = franjaEn(t), color = falta ? 'falta' : (f ? f.color : SIN_FRANJA);
+    if (cur && cur.color === color) cur.n += 5; else { cur = { color, n: 5 }; partes.push(cur); }
+  }
+  return `<div class="tira" aria-hidden="true">${partes.map(p => p.color === 'falta'
+    ? `<i class="falta" style="width:${p.n / total * 100}%"></i>`
+    : `<i style="width:${p.n / total * 100}%;background:${p.color}"></i>`).join('')}</div>
+    <div class="tira-eti"><span>${hora(w[0])}</span><span>${hora(w[1])}</span></div>`;
+}
+
+function vistaSemana() {
+  const lista = turnosDe(semana), ivs = intervalos(semana), av = avisos(semana);
+  const rojos = av.filter(a => a.n === 'rojo').length, ambar = av.filter(a => a.n === 'ambar').length;
+  const lunes = deClave(semana);
+  let cajaAvisos;
+  if (!S.personas.length) cajaAvisos = '';
+  else if (!av.length) cajaAvisos = `<div class="avisos ok"><button disabled><span class="punto" style="background:var(--azulejo)"></span>Todo en orden esta semana</button></div>`;
+  else {
+    const titulo = av.length === 1 ? '1 cosa por revisar' : `${av.length} cosas por revisar`;
+    cajaAvisos = `<div class="avisos ${rojos ? 'mal' : ambar ? 'medio' : 'ok'} ${avisosAbiertos ? 'abierto' : ''}">
+      <button data-a="avisos" aria-expanded="${avisosAbiertos}"><span class="punto ${rojos ? 'rojo' : ambar ? 'ambar' : 'gris'}"></span>${titulo}<span class="flechita">▾</span></button>
+      ${avisosAbiertos ? `<ul>${av.map(a => `<li><button data-a="ir-dia" data-d="${a.d}"><span class="punto ${a.n}"></span><span>${esc(a.txt)}</span></button></li>`).join('')}</ul>` : ''}
+    </div>`;
+  }
+  const hayAnterior = turnosDe(claveMas(semana, -7)).length > 0;
+  const leyenda = `<div class="leyenda">${S.franjas.map(f => `<span><b style="background:${f.color}"></b>${esc(f.nombre)}</span>`).join('')}<span><b class="falta" style="background:repeating-linear-gradient(135deg,var(--rojo) 0 3px,#F6B8B1 3px 6px)"></b>Falta gente</span></div>`;
+
+  let dias = '';
+  for (let d = 0; d < 7; d++) {
+    const fecha = masDias(lunes, d), w = ventana(d);
+    const delDia = lista.filter(t => t.d === d).sort((x, y) => aMin(x.ini) - aMin(y.ini));
+    const nRojo = av.filter(a => a.d === d && a.n === 'rojo').length, nAmb = av.filter(a => a.d === d && a.n === 'ambar').length;
+    dias += `<section class="dia ${w ? '' : 'cerrado'}" id="dia-${d}">
+      <div class="dia-cab"><h3>${DIAS[d]} <span class="fecha">${fecha.getDate()} ${MESES_C[fecha.getMonth()]}</span></h3>
+        ${nRojo ? `<span class="marca">${nRojo} por revisar</span>` : nAmb ? `<span class="marca ambar">Ojo</span>` : ''}
+        <span class="hor">${w ? `${hora(w[0])} a ${hora(w[1])}` : 'Cerrado'}</span></div>
+      ${S.personas.length ? tira(d, ivs) : ''}
+      ${delDia.map(t => {
+        const p = persona(t.p), [a, b] = rango(t);
+        return `<button class="turno" data-a="editar" data-id="${t.id}" style="background:${colorTurno(t)}40;border-left-color:${colorTurno(t)}">
+          <span class="quien">${esc(p ? p.nombre : 'Sin persona')}</span>
+          <span class="cuando">${hora(a)} a ${hora(b)}<small>${horas(b - a)}${b > 1440 ? ' · sale al día siguiente' : ''}</small></span></button>`;
+      }).join('')}
+      <button class="agregar" data-a="nuevo" data-d="${d}">+ Agregar turno</button>
+    </section>`;
+  }
+
+  const sinGente = !S.personas.length
+    ? `<div class="tarjeta vacio"><strong>Todavía no hay nadie en tu equipo</strong>Empieza agregando a las personas de la cocina.<div style="margin-top:14px"><button class="btn prim" data-a="tab" data-t="personas">Agregar personas</button></div></div>` : '';
+
+  return `<div class="cabeza"><p class="hola">Hola, ${esc(S.nombre || '')}</p><h1>Horario de cocina</h1></div>
+    <div class="semana-nav">
+      <button class="flecha" data-a="semana" data-n="-7" aria-label="Semana anterior">‹</button>
+      <div class="centro"><strong>${textoSemana(semana)}</strong><span>${cualSemana(semana)}${semana !== HOY ? ` · <button class="hoy" data-a="hoy">ir a hoy</button>` : ''}</span></div>
+      <button class="flecha" data-a="semana" data-n="7" aria-label="Semana siguiente">›</button>
+    </div>
+    ${sinGente}
+    ${S.personas.length ? `<div class="acciones">
+      <button class="btn prim grande" data-a="sugerir">Sugerir horario</button>
+      <button class="btn" data-a="copiar" ${hayAnterior ? '' : 'disabled'}>Copiar semana anterior</button>
+      <button class="btn" data-a="excel" ${lista.length ? '' : 'disabled'}>Descargar Excel</button>
+    </div>` : ''}
+    ${guardadoOk ? '' : `<div class="error">Este celular no está guardando los cambios. Abre la app desde Chrome normal, no en modo incógnito.</div>`}
+    ${cajaAvisos}
+    ${S.personas.length ? leyenda : ''}
+    ${dias}
+    ${lista.length ? `<button class="btn texto ancho" data-a="vaciar">Borrar todos los turnos de esta semana</button>` : ''}`;
+}
+
+function vistaPersonas() {
+  const lista = turnosDe(semana);
+  const filas = S.personas.map(p => {
+    const suyos = lista.filter(t => t.p === p.id);
+    const total = suyos.reduce((s, t) => { const [a, b] = rango(t); return s + b - a; }, 0);
+    const np = (p.noPuede || []).map(d => DIAS_C[d]).join(', ');
+    return `<button class="persona-btn" data-a="persona" data-id="${p.id}"><span class="inicial">${esc(p.nombre.trim().charAt(0).toUpperCase())}</span>
+      <span class="nom" style="flex:1"><strong>${esc(p.nombre)}</strong><span style="color:var(--suave);font-size:.9rem">${horas(total)} esta semana${np ? ` · No puede: ${np}` : ''}</span></span><span aria-hidden="true">›</span></button>`;
+  }).join('');
+  return `<div class="cabeza"><h1>Tu equipo</h1><p class="hola">${S.personas.length ? `${S.personas.length} ${S.personas.length === 1 ? 'persona' : 'personas'}. Toca a alguien para cambiar su nombre o sus días.` : 'Agrega a cada persona que trabaja en la cocina.'}</p></div>
+    <div class="tarjeta">
+      <form data-f="agregar-persona" class="dos" style="grid-template-columns:1fr auto;align-items:end">
+        <label class="campo" style="margin:0"><span>Nombre</span><input type="text" name="nombre" autocomplete="off" placeholder="Ej: Carlos" maxlength="40"></label>
+        <button class="btn prim" type="submit">Agregar</button>
+      </form>
+    </div>
+    ${S.personas.length ? `<div class="tarjeta">${filas}</div>` : ''}`;
+}
+
+function paso(campo, valor, sufijo) {
+  return `<div class="paso"><button type="button" data-a="paso" data-c="${campo}" data-n="-1" aria-label="Menos">−</button><output>${valor}${sufijo}</output><button type="button" data-a="paso" data-c="${campo}" data-n="1" aria-label="Más">+</button></div>`;
+}
+
+function vistaAjustes() {
+  const dias = S.dias.map((x, d) => `<div class="fila" style="flex-wrap:wrap">
+      <div class="nom" style="flex:1 1 100%"><strong>${DIAS[d]}</strong></div>
+      <label class="interruptor"><input type="checkbox" data-c="cerrado" data-d="${d}" ${x.cerrado ? 'checked' : ''}> Cerrado</label>
+      ${x.cerrado ? '' : `<div class="dos" style="flex:1 1 100%"><label class="campo" style="margin:4px 0"><span>Abre</span><input type="time" data-c="abre" data-d="${d}" value="${x.abre}"></label><label class="campo" style="margin:4px 0"><span>Cierra</span><input type="time" data-c="cierra" data-d="${d}" value="${x.cierra}"></label></div>`}
+    </div>`).join('');
+  const franjas = S.franjas.map(f => `<div class="franja">
+      <label class="campo" style="margin-top:0"><span>Nombre de la franja</span><input type="text" data-c="f-nombre" data-id="${f.id}" value="${esc(f.nombre)}" maxlength="20"></label>
+      <div class="dos"><label class="campo" style="margin:0"><span>Desde</span><input type="time" data-c="f-desde" data-id="${f.id}" value="${f.desde}"></label><label class="campo" style="margin:0"><span>Hasta</span><input type="time" data-c="f-hasta" data-id="${f.id}" value="${f.hasta}"></label></div>
+      <p style="font-weight:600;margin:12px 0 6px">Mínimo de personas</p>${paso('f-min:' + f.id, f.min, '')}
+      <p style="font-weight:600;margin:12px 0 6px">Color</p>
+      <div class="chips">${PALETA.map(c => `<button type="button" class="color" style="background:${c}" data-a="color" data-id="${f.id}" data-col="${c}" aria-label="Color" aria-pressed="${f.color === c}"></button>`).join('')}</div>
+      ${S.franjas.length > 1 ? `<button class="btn texto" data-a="quitar-franja" data-id="${f.id}" style="color:var(--rojo);margin-top:6px">Quitar esta franja</button>` : ''}
+    </div>`).join('');
+  return `<div class="cabeza"><h1>Ajustes</h1><p class="hola">Todo lo que cambies aquí se guarda solo.</p></div>
+    <div class="tarjeta"><h2>Tus datos</h2>
+      <label class="campo"><span>Tu nombre</span><input type="text" data-c="nombre" value="${esc(S.nombre)}" maxlength="30"></label>
+      <label class="campo"><span>Nombre del restaurante</span><input type="text" data-c="lugar" value="${esc(S.lugar)}" maxlength="50"></label>
+    </div>
+    <div class="tarjeta"><h2>Horario del restaurante</h2><p class="ayuda">A qué hora abre y cierra cada día. Si cierra después de medianoche, pon la hora igual (por ejemplo 1:00 am).</p>
+      ${dias}
+      <button class="btn ancho" data-a="igual-dias" style="margin-top:8px">Poner el horario del lunes en todos los días</button>
+    </div>
+    <div class="tarjeta"><h2>Franjas del día</h2><p class="ayuda">Cada franja tiene un color y cuántas personas necesitas como mínimo. Fuera de las franjas, la app pide al menos 1 persona mientras esté abierto.</p>
+      ${franjas}
+      <button class="btn ancho" data-a="nueva-franja" style="margin-top:8px">+ Agregar franja</button>
+    </div>
+    <div class="tarjeta"><h2>Límites</h2><p class="ayuda">La app te avisa cuando alguien pase de aquí, pero no te bloquea.</p>
+      <div class="fila"><div class="nom"><strong>Horas por semana</strong><span>Máximo legal en Colombia: 42</span></div>${paso('maxSemana', S.maxSemana, ' h')}</div>
+      <div class="fila"><div class="nom"><strong>Turno más largo</strong><span>Más que esto sale como aviso</span></div>${paso('maxTurno', S.maxTurno, ' h')}</div>
+      <div class="fila"><div class="nom"><strong>Largo normal de un turno</strong><span>El que usa "Sugerir horario"</span></div>${paso('turnoNormal', S.turnoNormal, ' h')}</div>
+    </div>
+    <div class="tarjeta"><h2>Copia de respaldo</h2><p class="ayuda">Tus horarios viven en este celular. Guarda una copia de vez en cuando (por ejemplo, mándatela por WhatsApp) por si cambias de celular o se borra el navegador.</p>
+      <div class="acciones" style="margin:0">
+        <button class="btn" data-a="respaldo">Guardar copia</button>
+        <button class="btn" data-a="cargar">Cargar copia</button>
+      </div>
+      <input type="file" id="archivo" accept=".json,application/json" hidden>
+    </div>`;
+}
+
+const ICONOS = {
+  semana: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  personas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.3 0 4 1.5 4.5 4"/></svg>',
+  ajustes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+};
+
+function pintar() {
+  const y = window.scrollY;
+  const app = document.getElementById('app');
+  app.innerHTML = pestana === 'semana' ? vistaSemana() : pestana === 'personas' ? vistaPersonas() : vistaAjustes();
+  document.getElementById('nav').innerHTML = [['semana', 'Horario'], ['personas', 'Equipo'], ['ajustes', 'Ajustes']]
+    .map(([k, t]) => `<button data-a="tab" data-t="${k}" ${pestana === k ? 'aria-current="page"' : ''}>${ICONOS[k]}${t}</button>`).join('');
+  window.scrollTo(0, y);
+}
+
+// ---------- Hojas (ventanas que suben desde abajo) ----------
+let hojaAbierta = false;
+function abrirHoja(html, alPintar) {
+  const capa = document.getElementById('capa');
+  capa.innerHTML = `<div class="velo" data-a="fondo"><div class="hoja" role="dialog" aria-modal="true">${html}</div></div>`;
+  if (!hojaAbierta) history.pushState({ hoja: 1 }, '');
+  hojaAbierta = true;
+  document.body.style.overflow = 'hidden';
+  if (alPintar) alPintar(capa.querySelector('.hoja'));
+}
+function cerrarHoja(desdeAtras) {
+  if (!hojaAbierta) return;
+  hojaAbierta = false;
+  document.getElementById('capa').innerHTML = '';
+  document.body.style.overflow = '';
+  if (!desdeAtras) history.back();
+}
+// El botón "atrás" de Android cierra la ventana en vez de salirse de la app.
+window.addEventListener('popstate', () => { if (hojaAbierta) cerrarHoja(true); });
+
+function hojaTurno(t, dia) {
+  const nuevo = !t;
+  const d0 = nuevo ? dia : t.d;
+  const w = ventana(d0) || [aMin('06:00'), aMin('14:00')];
+  const L = S.turnoNormal * 60;
+  const ini = nuevo ? hhmm(w[0]) : t.ini, fin = nuevo ? hhmm(Math.min(w[0] + L, w[1])) : t.fin;
+  const opciones = S.personas.map(p => `<option value="${p.id}" ${t && t.p === p.id ? 'selected' : ''}>${esc(p.nombre)}${(p.noPuede || []).includes(d0) ? ' (ese día no puede)' : ''}</option>`).join('');
+  abrirHoja(`<form data-f="turno" data-id="${t ? t.id : ''}">
+    <h2>${nuevo ? `Nuevo turno · ${DIAS[d0]}` : 'Cambiar turno'}</h2>
+    <label class="campo"><span>¿Quién?</span><select name="p" required>${nuevo ? '<option value="">Escoge a una persona</option>' : ''}${opciones}</select></label>
+    <div class="dos">
+      <label class="campo"><span>Entra</span><input type="time" name="ini" value="${ini}" required></label>
+      <label class="campo"><span>Sale</span><input type="time" name="fin" value="${fin}" required></label>
+    </div>
+    <p style="font-weight:600;margin:12px 0 6px">${nuevo ? 'Días (puedes marcar varios)' : 'Día'}</p>
+    <div class="chips" data-dias="${nuevo ? 'varios' : 'uno'}">${DIAS_C.map((n, d) => `<button type="button" class="chip" data-a="chip-dia" data-d="${d}" aria-pressed="${d === d0}">${n}</button>`).join('')}</div>
+    <div class="error" id="err" hidden></div>
+    <div class="botones">
+      <button class="btn prim" type="submit">${nuevo ? 'Guardar turno' : 'Guardar cambios'}</button>
+      ${nuevo ? '' : '<button class="btn peligro" type="button" data-a="borrar-turno">Borrar turno</button>'}
+      <button class="btn texto" type="button" data-a="cerrar">Cancelar</button>
+    </div></form>`);
+}
+
+function hojaPersona(p) {
+  abrirHoja(`<form data-f="persona" data-id="${p.id}">
+    <h2>${esc(p.nombre)}</h2>
+    <label class="campo"><span>Nombre</span><input type="text" name="nombre" value="${esc(p.nombre)}" maxlength="40" required></label>
+    <p style="font-weight:600;margin:12px 0 2px">Días que no puede trabajar</p>
+    <p class="nota" style="margin:0 0 8px">"Sugerir horario" no la pondrá esos días.</p>
+    <div class="chips" data-dias="varios">${DIAS_C.map((n, d) => `<button type="button" class="chip" data-a="chip-dia" data-d="${d}" aria-pressed="${(p.noPuede || []).includes(d)}">${n}</button>`).join('')}</div>
+    <div class="botones">
+      <button class="btn prim" type="submit">Guardar</button>
+      <button class="btn peligro" type="button" data-a="borrar-persona">Quitar del equipo</button>
+      <button class="btn texto" type="button" data-a="cerrar">Cancelar</button>
+    </div></form>`);
+}
+
+function hojaConfirmar(titulo, texto, boton, accion, peligro) {
+  abrirHoja(`<h2>${esc(titulo)}</h2><p>${esc(texto)}</p><div class="botones">
+    <button class="btn ${peligro ? 'peligro' : 'prim'}" data-a="confirmar">${esc(boton)}</button>
+    <button class="btn texto" data-a="cerrar">Cancelar</button></div>`);
+  hojaConfirmar.accion = accion;
+}
+
+function hojaSugerir() {
+  if (!turnosDe(semana).length) { sugerir('cero'); return; }
+  abrirHoja(`<h2>Sugerir horario</h2><p>Esta semana ya tiene turnos. ¿Qué hago?</p><div class="botones">
+    <button class="btn prim" data-a="sug" data-m="completar">Completar lo que falta<br><small style="font-weight:400">Dejo tus turnos y lleno los huecos</small></button>
+    <button class="btn" data-a="sug" data-m="cero">Empezar de cero<br><small style="font-weight:400">Borro los turnos de esta semana y armo todo</small></button>
+    <button class="btn texto" data-a="cerrar">Cancelar</button></div>`);
+}
+
+// ---------- Excel ----------
+const MESES_TXT = k => { const a = deClave(k), b = masDias(a, 6); return `${a.getDate()}-${b.getDate()} ${MESES_C[b.getMonth()]} ${b.getFullYear()}`; };
+const argb = hex => 'FF' + hex.replace('#', '').toUpperCase();
+function cargarExcelJS() {
+  if (window.ExcelJS) return Promise.resolve();
+  return new Promise((ok, mal) => { const s = document.createElement('script'); s.src = 'exceljs.min.js'; s.onload = ok; s.onerror = mal; document.head.appendChild(s); });
+}
+async function excel() {
+  try { await cargarExcelJS(); }
+  catch (e) { aviso('No se pudo preparar el Excel. Revisa que tengas internet y vuelve a intentar.'); return; }
+  const k = semana, lista = turnosDe(k), lunes = deClave(k);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = S.nombre || '';
+  const borde = { style: 'thin', color: { argb: 'FFC9D1CD' } };
+  const bordes = { top: borde, left: borde, bottom: borde, right: borde };
+  const relleno = hex => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: argb(hex) } });
+
+  const h = wb.addWorksheet('Horario', { views: [{ state: 'frozen', xSplit: 1, ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+  h.columns = [{ width: 22 }, ...DIAS.map(() => ({ width: 20 })), { width: 12 }];
+  h.mergeCells(1, 1, 1, 9);
+  h.getCell(1, 1).value = `Horario de cocina${S.lugar ? ' · ' + S.lugar : ''}`;
+  h.getCell(1, 1).font = { bold: true, size: 16, color: { argb: 'FF1E6B5E' } };
+  h.mergeCells(2, 1, 2, 9);
+  h.getCell(2, 1).value = `Semana del ${textoSemana(k)} de ${masDias(lunes, 6).getFullYear()}`;
+  h.getCell(2, 1).font = { size: 12, color: { argb: 'FF5B6662' } };
+  const cab = h.getRow(4);
+  cab.values = ['Persona', ...DIAS.map((n, d) => { const f = masDias(lunes, d); return `${n} ${f.getDate()} ${MESES_C[f.getMonth()]}`; }), 'Horas'];
+  cab.height = 24;
+  cab.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = relleno('#1E6B5E'); c.alignment = { vertical: 'middle', horizontal: 'center' }; c.border = bordes; });
+
+  let r = 5;
+  for (const p of S.personas) {
+    const suyos = lista.filter(t => t.p === p.id);
+    const fila = h.getRow(r);
+    fila.getCell(1).value = p.nombre;
+    fila.getCell(1).font = { bold: true };
+    let total = 0, lineasMax = 1;
+    for (let d = 0; d < 7; d++) {
+      const c = fila.getCell(d + 2);
+      const del = suyos.filter(t => t.d === d).sort((x, y) => aMin(x.ini) - aMin(y.ini));
+      if (del.length) {
+        c.value = del.map(t => { const [a, b] = rango(t); total += b - a; return `${hora(a)} a ${hora(b)}`; }).join('\n');
+        c.fill = relleno(colorTurno(del[0]));
+        lineasMax = Math.max(lineasMax, del.length);
+      } else { c.value = 'Libre'; c.font = { color: { argb: 'FF9AA5A0' }, italic: true }; }
+      c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    }
+    fila.getCell(9).value = Math.round(total / 6) / 10;
+    fila.getCell(9).numFmt = '0.0 "h"';
+    fila.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
+    if (total > S.maxSemana * 60) fila.getCell(9).font = { bold: true, color: { argb: 'FFB42318' } };
+    fila.height = 22 * lineasMax + 8;
+    fila.eachCell({ includeEmpty: true }, c => { c.border = bordes; });
+    r++;
+  }
+
+  r++;
+  h.getCell(r, 1).value = 'Colores';
+  h.getCell(r, 1).font = { bold: true };
+  r++;
+  for (const f of S.franjas) {
+    h.getCell(r, 1).value = f.nombre;
+    h.getCell(r, 1).fill = relleno(f.color);
+    h.getCell(r, 1).border = bordes;
+    h.getCell(r, 2).value = `${hora(aMin(f.desde))} a ${hora(aMin(f.hasta))}`;
+    r++;
+  }
+
+  const pd = wb.addWorksheet('Por día', { views: [{ state: 'frozen', ySplit: 1 }] });
+  pd.columns = [{ header: 'Día', width: 18 }, { header: 'Persona', width: 22 }, { header: 'Entra', width: 12 }, { header: 'Sale', width: 12 }, { header: 'Horas', width: 9 }, { header: 'Franja', width: 14 }];
+  pd.getRow(1).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = relleno('#1E6B5E'); c.border = bordes; });
+  for (let d = 0; d < 7; d++) {
+    const f = masDias(lunes, d);
+    lista.filter(t => t.d === d).sort((x, y) => aMin(x.ini) - aMin(y.ini)).forEach(t => {
+      const [a, b] = rango(t), fr = franjaEn(a), p = persona(t.p);
+      const fila = pd.addRow([`${DIAS[d]} ${f.getDate()} ${MESES_C[f.getMonth()]}`, p ? p.nombre : '', hora(a), hora(b), Math.round((b - a) / 6) / 10, fr ? fr.nombre : '']);
+      fila.getCell(6).fill = relleno(fr ? fr.color : SIN_FRANJA);
+      fila.eachCell(c => { c.border = bordes; });
+    });
+  }
+
+  const av = avisos(k);
+  if (av.length) {
+    const hs = wb.addWorksheet('Cosas por revisar');
+    hs.columns = [{ header: 'Qué pasa', width: 100 }];
+    hs.getRow(1).font = { bold: true };
+    av.forEach(a => { const fila = hs.addRow([a.txt]); if (a.n === 'rojo') fila.getCell(1).font = { color: { argb: 'FFB42318' } }; });
+  }
+
+  const buf = await wb.xlsx.writeBuffer();
+  descargar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Horario ${MESES_TXT(k)}.xlsx`);
+  aviso(av.some(a => a.n === 'rojo') ? 'Excel descargado. Ojo: todavía hay huecos sin cubrir (salen en la hoja "Cosas por revisar").' : 'Excel descargado. Lo encuentras en Descargas.');
+}
+function descargar(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: nombre });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ---------- Eventos ----------
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-a]'); if (!el) return;
+  const a = el.dataset.a;
+  if (a === 'fondo' && e.target !== el) return;
+  switch (a) {
+    case 'tab': pestana = el.dataset.t; pintar(); window.scrollTo(0, 0); break;
+    case 'semana': semana = claveMas(semana, +el.dataset.n); avisosAbiertos = false; pintar(); break;
+    case 'hoy': semana = HOY; pintar(); break;
+    case 'avisos': avisosAbiertos = !avisosAbiertos; pintar(); break;
+    case 'ir-dia': {
+      const d = +el.dataset.d;
+      if (d >= 0) document.getElementById('dia-' + d).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      else { pestana = 'personas'; pintar(); window.scrollTo(0, 0); }
+      break;
+    }
+    case 'nuevo': hojaTurno(null, +el.dataset.d); break;
+    case 'editar': hojaTurno(turnosDe(semana).find(t => t.id === el.dataset.id)); break;
+    case 'chip-dia': {
+      const grupo = el.parentElement;
+      if (grupo.dataset.dias === 'uno') grupo.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === el));
+      else el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true');
+      break;
+    }
+    case 'borrar-turno': {
+      const id = el.closest('form').dataset.id;
+      recordar();
+      S.semanas[semana] = turnosDe(semana).filter(t => t.id !== id);
+      guardar(); cerrarHoja(); pintar(); aviso('Turno borrado.', true);
+      break;
+    }
+    case 'persona': hojaPersona(persona(el.dataset.id)); break;
+    case 'borrar-persona': {
+      const p = persona(el.closest('form').dataset.id);
+      hojaConfirmar(`¿Quitar a ${p.nombre}?`, `También se borran todos sus turnos. Si te equivocas, puedes deshacerlo justo después.`, `Sí, quitar a ${p.nombre}`, () => {
+        recordar();
+        S.personas = S.personas.filter(x => x.id !== p.id);
+        for (const k in S.semanas) S.semanas[k] = S.semanas[k].filter(t => t.p !== p.id);
+        guardar(); pintar(); aviso(`${p.nombre} ya no está en el equipo.`, true);
+      }, true);
+      break;
+    }
+    case 'confirmar': { const f = hojaConfirmar.accion; cerrarHoja(); f(); break; }
+    case 'cerrar': case 'fondo': cerrarHoja(); break;
+    case 'deshacer': document.getElementById('toast')?.remove(); deshacer(); break;
+    case 'cerrar-toast': document.getElementById('toast')?.remove(); break;
+    case 'sugerir': hojaSugerir(); break;
+    case 'sug': cerrarHoja(); sugerir(el.dataset.m); break;
+    case 'copiar': {
+      const ant = turnosDe(claveMas(semana, -7));
+      const hacer = () => { recordar(); S.semanas[semana] = ant.filter(t => persona(t.p)).map(t => ({ ...t, id: uid() })); guardar(); pintar(); aviso(`Copié ${S.semanas[semana].length} turnos de la semana pasada.`, true); };
+      if (turnosDe(semana).length) hojaConfirmar('¿Copiar la semana anterior?', 'Los turnos que ya tiene esta semana se reemplazan por los de la semana anterior.', 'Sí, copiar', hacer, false);
+      else hacer();
+      break;
+    }
+    case 'vaciar':
+      hojaConfirmar('¿Borrar la semana?', 'Se borran todos los turnos de esta semana. Puedes deshacerlo justo después.', 'Sí, borrar todo', () => {
+        recordar(); S.semanas[semana] = []; guardar(); pintar(); aviso('Semana borrada.', true);
+      }, true);
+      break;
+    case 'excel': excel(); break;
+    case 'paso': {
+      const [campo, id] = el.dataset.c.split(':'), n = +el.dataset.n;
+      if (campo === 'f-min') { const f = S.franjas.find(x => x.id === id); f.min = Math.max(0, Math.min(20, f.min + n)); }
+      else { const lim = { maxSemana: [1, 80], maxTurno: [1, 24], turnoNormal: [1, 16] }[campo]; S[campo] = Math.max(lim[0], Math.min(lim[1], S[campo] + n)); }
+      guardar(); pintar(); break;
+    }
+    case 'color': S.franjas.find(x => x.id === el.dataset.id).color = el.dataset.col; guardar(); pintar(); break;
+    case 'nueva-franja': {
+      const usados = S.franjas.map(f => f.color);
+      S.franjas.push({ id: uid(), nombre: 'Nueva franja', desde: '10:00', hasta: '14:00', color: PALETA.find(c => !usados.includes(c)) || PALETA[0], min: 1 });
+      guardar(); pintar(); break;
+    }
+    case 'quitar-franja': {
+      const f = S.franjas.find(x => x.id === el.dataset.id);
+      hojaConfirmar(`¿Quitar la franja "${f.nombre}"?`, 'Los turnos no se borran, solo cambia el color y el mínimo de gente de esas horas.', 'Sí, quitar', () => {
+        recordar(); S.franjas = S.franjas.filter(x => x.id !== f.id); guardar(); pintar(); aviso('Franja quitada.', true);
+      }, true);
+      break;
+    }
+    case 'igual-dias': {
+      recordar();
+      const l = S.dias[0];
+      S.dias = S.dias.map(() => ({ ...l }));
+      guardar(); pintar(); aviso('Listo: todos los días quedaron con el horario del lunes.', true);
+      break;
+    }
+    case 'respaldo': {
+      const hoy = new Date();
+      descargar(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), `Copia horarios ${hoy.getDate()}-${MESES_C[hoy.getMonth()]}-${hoy.getFullYear()}.json`);
+      aviso('Copia guardada en Descargas. Mándatela por WhatsApp para tenerla segura.');
+      break;
+    }
+    case 'cargar': document.getElementById('archivo').click(); break;
+  }
+});
+
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.id === 'archivo') {
+    const f = el.files[0]; if (!f) return;
+    f.text().then(txt => {
+      const datos = JSON.parse(txt);
+      if (!Array.isArray(datos.personas) || typeof datos.semanas !== 'object') throw new Error('formato');
+      hojaConfirmar('¿Cargar esta copia?', `Trae ${datos.personas.length} personas. Lo que tienes ahora se reemplaza por lo de la copia.`, 'Sí, cargar copia', () => {
+        recordar(); S = Object.assign(estadoNuevo(), datos); guardar(); pintar(); aviso('Copia cargada.', true);
+      }, false);
+    }).catch(() => aviso('Ese archivo no es una copia de esta app. Busca el que se llama "Copia horarios…".'));
+    el.value = '';
+    return;
+  }
+  const c = el.dataset.c; if (!c) return;
+  const d = el.dataset.d != null ? +el.dataset.d : null;
+  if (c === 'cerrado') { S.dias[d].cerrado = el.checked; guardar(); pintar(); return; }
+  if ((c === 'abre' || c === 'cierra') && el.value) S.dias[d][c] = el.value;
+  else if (c.startsWith('f-')) {
+    const f = S.franjas.find(x => x.id === el.dataset.id), campo = c.slice(2);
+    if (campo === 'nombre') f.nombre = el.value.trim() || f.nombre; else if (el.value) f[campo] = el.value;
+  }
+  else if (c === 'nombre' || c === 'lugar') S[c] = el.value.trim();
+  guardar();
+});
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target, tipo = f.dataset.f;
+  if (tipo === 'agregar-persona') {
+    const nombre = f.nombre.value.trim();
+    if (!nombre) { f.nombre.focus(); return; }
+    if (S.personas.some(p => p.nombre.toLowerCase() === nombre.toLowerCase())) { aviso(`Ya hay alguien que se llama ${nombre}. Ponle el apellido o una inicial para diferenciarlos.`); return; }
+    S.personas.push({ id: uid(), nombre, noPuede: [] });
+    guardar(); pintar();
+    document.querySelector('[data-f="agregar-persona"] input').focus();
+    aviso(`${nombre} quedó en el equipo.`);
+  }
+  if (tipo === 'persona') {
+    const p = persona(f.dataset.id), nombre = f.nombre.value.trim();
+    if (!nombre) return;
+    p.nombre = nombre;
+    p.noPuede = [...f.querySelectorAll('.chip[aria-pressed=true]')].map(c => +c.dataset.d);
+    guardar(); cerrarHoja(); pintar(); aviso('Guardado.');
+  }
+  if (tipo === 'turno') {
+    const err = f.querySelector('#err');
+    const mal = txt => { err.textContent = txt; err.hidden = false; };
+    const p = f.p.value, ini = f.ini.value, fin = f.fin.value;
+    const dias = [...f.querySelectorAll('.chip[aria-pressed=true]')].map(c => +c.dataset.d);
+    if (!p) return mal('Escoge a la persona del turno.');
+    if (!ini || !fin) return mal('Pon la hora de entrada y la de salida.');
+    if (ini === fin) return mal('La hora de salida no puede ser igual a la de entrada.');
+    if (!dias.length) return mal('Marca al menos un día.');
+    recordar();
+    const lista = turnosDe(semana).slice();
+    if (f.dataset.id) {
+      const i = lista.findIndex(t => t.id === f.dataset.id);
+      lista[i] = { ...lista[i], p, ini, fin, d: dias[0] };
+    } else dias.forEach(d => lista.push({ id: uid(), p, d, ini, fin }));
+    S.semanas[semana] = lista;
+    guardar(); cerrarHoja(); pintar();
+    aviso(f.dataset.id ? 'Turno cambiado.' : dias.length > 1 ? `Listo: ${dias.length} turnos agregados.` : 'Turno agregado.', true);
+  }
+});
+
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+pintar();
+</script>
+</body>
+</html>
