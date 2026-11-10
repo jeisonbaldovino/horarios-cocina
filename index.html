@@ -189,11 +189,44 @@ function estadoNuevo() {
   };
 }
 
+// Una copia de respaldo puede venir de cualquier parte (WhatsApp, correo): se reconstruye
+// campo por campo y solo pasan valores con forma válida, porque muchos van a parar a innerHTML.
+const ES_ID = /^[a-z0-9]{1,20}$/, ES_HORA = /^([01]\d|2[0-3]):[0-5]\d$/, ES_COLOR = /^#[0-9A-Fa-f]{6}$/, ES_SEMANA = /^\d{4}-\d{2}-\d{2}$/;
+const numEn = (v, a, b, def) => Number.isFinite(v) ? Math.max(a, Math.min(b, Math.round(v))) : def;
+const textoEn = (v, max, def) => typeof v === 'string' ? v.slice(0, max) : def;
+const horaEn = (v, def) => typeof v === 'string' && ES_HORA.test(v) ? v : def;
+function limpiar(x) {
+  const base = estadoNuevo();
+  if (!x || typeof x !== 'object') return base;
+  const dias = Array.isArray(x.dias) && x.dias.length === 7
+    ? x.dias.map((d, i) => ({ abre: horaEn(d && d.abre, base.dias[i].abre), cierra: horaEn(d && d.cierra, base.dias[i].cierra), cerrado: !!(d && d.cerrado) }))
+    : base.dias;
+  const franjas = Array.isArray(x.franjas) ? x.franjas.filter(f => f && ES_ID.test(f.id)).slice(0, 12).map(f => ({
+    id: f.id, nombre: textoEn(f.nombre, 20, 'Franja'), desde: horaEn(f.desde, '06:00'), hasta: horaEn(f.hasta, '12:00'),
+    color: ES_COLOR.test(f.color) ? f.color : PALETA[0], min: numEn(f.min, 0, 20, 1),
+  })) : base.franjas;
+  const personas = Array.isArray(x.personas) ? x.personas.filter(p => p && ES_ID.test(p.id) && typeof p.nombre === 'string').slice(0, 200).map(p => ({
+    id: p.id, nombre: p.nombre.slice(0, 40), noPuede: Array.isArray(p.noPuede) ? [...new Set(p.noPuede.filter(d => Number.isInteger(d) && d >= 0 && d < 7))] : [],
+  })) : [];
+  const semanas = {};
+  if (x.semanas && typeof x.semanas === 'object') for (const k of Object.keys(x.semanas)) {
+    if (!ES_SEMANA.test(k) || !Array.isArray(x.semanas[k])) continue;
+    semanas[k] = x.semanas[k].filter(t => t && ES_ID.test(t.id) && ES_ID.test(t.p) && Number.isInteger(t.d) && t.d >= 0 && t.d < 7 && ES_HORA.test(t.ini) && ES_HORA.test(t.fin) && t.ini !== t.fin)
+      .map(t => ({ id: t.id, p: t.p, d: t.d, ini: t.ini, fin: t.fin }));
+  }
+  return {
+    v: 1, nombre: textoEn(x.nombre, 30, base.nombre), lugar: textoEn(x.lugar, 50, base.lugar), dias,
+    franjas: franjas.length ? franjas : base.franjas,
+    maxSemana: numEn(x.maxSemana, 1, 80, 42), maxTurno: numEn(x.maxTurno, 1, 24, 12), turnoNormal: numEn(x.turnoNormal, 1, 16, 8),
+    personas, semanas,
+  };
+}
+
 let guardadoOk = true;
 function cargar() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return Object.assign(estadoNuevo(), JSON.parse(raw));
+    if (raw) return limpiar(JSON.parse(raw));
   } catch (e) { guardadoOk = false; }
   return estadoNuevo();
 }
@@ -798,10 +831,11 @@ document.addEventListener('change', e => {
   if (el.id === 'archivo') {
     const f = el.files[0]; if (!f) return;
     f.text().then(txt => {
-      const datos = JSON.parse(txt);
-      if (!Array.isArray(datos.personas) || typeof datos.semanas !== 'object') throw new Error('formato');
+      const crudo = JSON.parse(txt);
+      if (!crudo || !Array.isArray(crudo.personas) || typeof crudo.semanas !== 'object') throw new Error('formato');
+      const datos = limpiar(crudo);
       hojaConfirmar('¿Cargar esta copia?', `Trae ${datos.personas.length} personas. Lo que tienes ahora se reemplaza por lo de la copia.`, 'Sí, cargar copia', () => {
-        recordar(); S = Object.assign(estadoNuevo(), datos); guardar(); pintar(); aviso('Copia cargada.', true);
+        recordar(); S = datos; guardar(); pintar(); aviso('Copia cargada.', true);
       }, false);
     }).catch(() => aviso('Ese archivo no es una copia de esta app. Busca el que se llama "Copia horarios…".'));
     el.value = '';
