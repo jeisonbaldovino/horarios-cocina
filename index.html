@@ -583,7 +583,7 @@ function hojaTurno(t, dia) {
   const L = S.turnoNormal * 60;
   const ini = nuevo ? hhmm(w[0]) : t.ini, fin = nuevo ? hhmm(Math.min(w[0] + L, w[1])) : t.fin;
   const opciones = S.personas.map(p => `<option value="${p.id}" ${t && t.p === p.id ? 'selected' : ''}>${esc(p.nombre)}${(p.noPuede || []).includes(d0) ? ' (ese día no puede)' : ''}</option>`).join('');
-  abrirHoja(`<form data-f="turno" data-id="${t ? t.id : ''}">
+  abrirHoja(`<form data-f="turno" novalidate data-id="${t ? t.id : ''}">
     <h2>${nuevo ? `Nuevo turno · ${DIAS[d0]}` : 'Cambiar turno'}</h2>
     <label class="campo"><span>¿Quién?</span><select name="p" required>${nuevo ? '<option value="">Escoge a una persona</option>' : ''}${opciones}</select></label>
     <div class="dos">
