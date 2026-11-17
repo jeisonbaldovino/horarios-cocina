@@ -88,7 +88,10 @@ p{margin:0}
 .tira{display:flex;height:22px;border-radius:7px;overflow:hidden;margin:10px 0 2px;border:1px solid var(--linea)}
 .tira i{display:block;height:100%}
 .tira i.falta{background:repeating-linear-gradient(135deg,var(--rojo) 0 5px,#F6B8B1 5px 10px)}
-.tira-eti{display:flex;justify-content:space-between;color:var(--suave);font-size:.8rem;margin-bottom:2px}
+.tira-eti{position:relative;height:1.3em;color:var(--suave);font-size:.8rem;margin-bottom:2px}
+.tira-eti span{position:absolute;top:0;white-space:nowrap}
+.tira-eti span.medio{transform:translateX(-50%)}
+.tira.vacia{align-items:center;justify-content:center;color:var(--suave);font-size:.85rem;background:repeating-linear-gradient(135deg,#F7F8F7 0 6px,#EEF1EF 6px 12px);border-style:dashed}
 .ver-quien{display:block;width:100%;border:0;background:none;padding:0;text-align:left;margin-bottom:6px}
 .ver-quien-txt{display:block;color:var(--azulejo);font-weight:700;font-size:.92rem;padding:6px 0;min-height:32px}
 .descanso{display:flex;align-items:center;gap:12px;border:1.5px dashed #B8C2BE;border-radius:10px;padding:8px 12px;margin:6px 0;color:var(--suave);background:repeating-linear-gradient(135deg,#F7F8F7 0 8px,#EEF1EF 8px 16px)}
@@ -102,6 +105,17 @@ p{margin:0}
 .tramo p{margin-top:2px}
 .tramo p.descansa{color:#3F4A46}
 .tramo small{color:var(--suave)}
+.su-semana{border:1px solid var(--linea);border-radius:12px;padding:8px 12px;margin:8px 0 4px}
+.sd-tit{font-weight:700;display:flex;justify-content:space-between;margin-bottom:4px}
+.sd-tit span{color:var(--suave);font-weight:600}
+.sd-fila{display:flex;gap:12px;padding:6px 0;border-top:1px solid var(--linea);font-size:.97rem}
+.sd-dia{width:64px;flex:none;font-weight:600}
+.sd-fila .desc{color:var(--suave);font-size:.88rem}
+.sd-fila .libre{color:var(--suave);font-style:italic}
+.copia-aviso{background:var(--ambar-claro);border:1.5px solid #F5D6A8;border-radius:var(--radio);padding:14px 16px;margin-bottom:16px}
+.copia-aviso strong{display:block;margin-bottom:2px}
+.copia-aviso .acciones{margin:10px 0 0}
+.marca.gris{background:#EEF1EF;color:var(--suave)}
 .marca.bien{background:var(--azulejo-claro);color:var(--azulejo-osc)}
 
 .turno{width:100%;display:flex;align-items:center;gap:12px;border:0;border-left:8px solid;border-radius:10px;padding:10px 12px;margin:6px 0;text-align:left;min-height:52px}
@@ -250,6 +264,19 @@ function guardar() {
 }
 
 let S = cargar();
+const KEY_COPIA = 'horarios-cocina-copia';
+const DIAS_COPIA = 14;
+function leerCopia() { try { return JSON.parse(localStorage.getItem(KEY_COPIA)) || {}; } catch (e) { return {}; } }
+function marcarCopia(campo) { try { localStorage.setItem(KEY_COPIA, JSON.stringify({ ...leerCopia(), [campo]: Date.now() })); } catch (e) {} }
+function recordatorioCopia() {
+  if (!Object.values(S.semanas).some(l => l.length)) return '';
+  const c = leerCopia(), ahora = Date.now(), dia = 864e5;
+  if (c.despues && ahora - c.despues < 3 * dia) return '';
+  if (c.ultima && ahora - c.ultima < DIAS_COPIA * dia) return '';
+  const txt = c.ultima ? `Hace ${Math.floor((ahora - c.ultima) / dia)} días que no guardas una copia.` : 'Todavía no has guardado una copia de tus horarios.';
+  return `<div class="copia-aviso" role="status"><strong>${txt}</strong>Si se borra el navegador o cambias de celular, se pierden. Guárdala y mándatela por WhatsApp.
+    <div class="acciones"><button class="btn prim" data-a="respaldo">Guardar copia ahora</button><button class="btn" data-a="copia-despues">Después</button></div></div>`;
+}
 const lunesDe = f => { const d = new Date(f.getFullYear(), f.getMonth(), f.getDate()); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d; };
 const clave = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const deClave = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -345,11 +372,20 @@ function porQue(d, a, b, ivs) {
     : `${p.nombre} todavía no entra (entra a las ${hora(e.min)}).`).join(' ');
 }
 
+// Un día abierto sin ningún turno es un día que ella todavía no ha llenado, no una alarma.
+function diaVacio(d, lista, ivs) {
+  const w = ventana(d); if (!w || lista.some(t => t.d === d)) return false;
+  const h = huecosDia(d, ivs);
+  return h.length === 1 && h[0].have === 0 && h[0].a === w[0] && h[0].b === w[1];
+}
+const unir = xs => xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1];
+
 function avisos(k) {
-  const lista = turnosDe(k), ivs = intervalos(k), out = [];
+  const lista = turnosDe(k), ivs = intervalos(k), out = [], vacios = [];
   for (let d = 0; d < 7; d++) {
     if (S.dias[d].cerrado && lista.some(t => t.d === d))
       out.push({ n: 'ambar', d, txt: `El ${DIAS[d].toLowerCase()} está marcado como cerrado, pero tiene turnos.` });
+    if (diaVacio(d, lista, ivs)) { vacios.push(d); continue; }
     for (const h of huecosDia(d, ivs)) {
       const txt = h.have === 0
         ? `${DIAS[d]} de ${hora(h.a)} a ${hora(h.b)}: no hay nadie.`
@@ -358,6 +394,10 @@ function avisos(k) {
       out.push({ n: 'rojo', d, txt: motivo ? `${txt} ${motivo}` : txt });
     }
   }
+  if (vacios.length && vacios.length === S.dias.filter((x, d) => ventana(d)).length)
+    out.push({ n: 'ambar', d: vacios[0], txt: 'Esta semana todavía no tiene turnos. Toca "Sugerir horario" o agrégalos día por día.' });
+  else if (vacios.length)
+    out.push({ n: 'ambar', d: vacios[0], txt: `${unir(vacios.map(d => DIAS[d]))} todavía ${vacios.length === 1 ? 'no tiene' : 'no tienen'} turnos.` });
   for (const p of S.personas) {
     const mios = ivs.filter(i => i.t.p === p.id).sort((x, y) => x.a - y.a);
     for (let i = 0; i < mios.length; i++) for (let j = i + 1; j < mios.length; j++) {
@@ -461,8 +501,19 @@ function cualSemana(k) {
   return dif > 0 ? `En ${dif} semanas` : `Hace ${-dif} semanas`;
 }
 
-function tira(d, ivs) {
+const horaCorta = n => { const x = hora(n); return x.replace(':00 ', ' '); };
+// Marcas de hora debajo de la barra: cada 2, 3 o 4 horas según lo largo que sea el día.
+function marcasHora(w) {
+  const total = w[1] - w[0], paso = total > 12 * 60 ? 240 : total > 6 * 60 ? 180 : 120;
+  const out = [`<span style="left:0">${horaCorta(w[0])}</span>`];
+  for (let t = w[0] + paso; t <= w[1] - paso / 2; t += paso)
+    out.push(`<span class="medio" style="left:${(t - w[0]) / total * 100}%">${horaCorta(t)}</span>`);
+  out.push(`<span style="right:0">${horaCorta(w[1])}</span>`);
+  return `<div class="tira-eti">${out.join('')}</div>`;
+}
+function tira(d, ivs, vacio) {
   const w = ventana(d); if (!w) return '';
+  if (vacio) return `<div class="tira vacia">Todavía sin turnos</div>${marcasHora(w)}`;
   const total = w[1] - w[0], partes = [];
   let cur = null;
   for (let t = w[0]; t < w[1]; t += 5) {
@@ -473,7 +524,7 @@ function tira(d, ivs) {
   return `<button class="ver-quien" data-a="quien" data-d="${d}"><div class="tira" aria-hidden="true">${partes.map(p => p.color === 'falta'
     ? `<i class="falta" style="width:${p.n / total * 100}%"></i>`
     : `<i style="width:${p.n / total * 100}%;background:${p.color}"></i>`).join('')}</div>
-    <div class="tira-eti"><span>${hora(w[0])}</span><span>${hora(w[1])}</span></div>
+    ${marcasHora(w)}
     <span class="ver-quien-txt">Ver quién trabaja, quién descansa y quién ya salió ›</span></button>`;
 }
 
@@ -543,9 +594,9 @@ function vistaSemana() {
     const nRojo = av.filter(a => a.d === d && a.n === 'rojo').length, nAmb = av.filter(a => a.d === d && a.n === 'ambar').length;
     dias += `<section class="dia ${w ? '' : 'cerrado'}" id="dia-${d}">
       <div class="dia-cab"><h3>${DIAS[d]} <span class="fecha">${fecha.getDate()} ${MESES_C[fecha.getMonth()]}</span></h3>
-        ${nRojo ? `<span class="marca">${nRojo} por revisar</span>` : nAmb ? `<span class="marca ambar">Ojo</span>` : ''}
+        ${nRojo ? `<span class="marca">${nRojo} por revisar</span>` : w && diaVacio(d, lista, ivs) ? '<span class="marca gris">Sin turnos</span>' : nAmb ? `<span class="marca ambar">Ojo</span>` : ''}
         <span class="hor">${w ? `${hora(w[0])} a ${hora(w[1])}` : 'Cerrado'}</span></div>
-      ${S.personas.length ? tira(d, ivs) : ''}
+      ${S.personas.length ? tira(d, ivs, diaVacio(d, lista, ivs)) : ''}
       ${[...delDia.map(t => ({ a: rango(t)[0], t })), ...descansosDia(delDia)].sort((x, y) => x.a - y.a).map(({ t, a: da, b: db, p: dp }) => {
         if (!t) return `<div class="descanso"><span class="quien">${esc(dp.nombre)} descansa</span><span class="cuando">${hora(da)} a ${hora(db)}<small>vuelve a las ${hora(db)}</small></span></div>`;
         const p = persona(t.p), [a, b] = rango(t);
@@ -574,6 +625,7 @@ function vistaSemana() {
       <button class="btn" data-a="excel" ${lista.length ? '' : 'disabled'}>Descargar Excel</button>
     </div>` : ''}
     ${guardadoOk ? '' : `<div class="error">Este celular no está guardando los cambios. Abre la app desde Chrome normal, no en modo incógnito.</div>`}
+    ${recordatorioCopia()}
     ${cajaAvisos}
     ${S.personas.length ? leyenda : ''}
     ${dias}
@@ -589,7 +641,7 @@ function vistaPersonas() {
     return `<button class="persona-btn" data-a="persona" data-id="${p.id}"><span class="inicial">${esc(p.nombre.trim().charAt(0).toUpperCase())}</span>
       <span class="nom" style="flex:1"><strong>${esc(p.nombre)}</strong><span style="color:var(--suave);font-size:.9rem">${horas(total)} esta semana${np ? ` · No puede: ${np}` : ''}</span></span><span aria-hidden="true">›</span></button>`;
   }).join('');
-  return `<div class="cabeza"><h1>Tu equipo</h1><p class="hola">${S.personas.length ? `${S.personas.length} ${S.personas.length === 1 ? 'persona' : 'personas'}. Toca a alguien para cambiar su nombre o sus días.` : 'Agrega a cada persona que trabaja en la cocina.'}</p></div>
+  return `<div class="cabeza"><h1>Tu equipo</h1><p class="hola">${S.personas.length ? `${S.personas.length} ${S.personas.length === 1 ? 'persona' : 'personas'}. Toca a alguien para ver su semana o cambiar sus datos.` : 'Agrega a cada persona que trabaja en la cocina.'}</p></div>
     <div class="tarjeta">
       <form data-f="agregar-persona" class="dos" style="grid-template-columns:1fr auto;align-items:end">
         <label class="campo" style="margin:0"><span>Nombre</span><input type="text" name="nombre" autocomplete="off" placeholder="Ej: Carlos" maxlength="40"></label>
@@ -663,6 +715,7 @@ function pintar() {
 let hojaAbierta = false;
 function abrirHoja(html, alPintar) {
   const capa = document.getElementById('capa');
+  document.getElementById('toast')?.remove();
   capa.innerHTML = `<div class="velo" data-a="fondo"><div class="hoja" role="dialog" aria-modal="true">${html}</div></div>`;
   if (!hojaAbierta) history.pushState({ hoja: 1 }, '');
   hojaAbierta = true;
@@ -711,9 +764,27 @@ function hojaTurno(t, dia, partido) {
     </div></form>`);
 }
 
+function semanaDe(p) {
+  const lista = turnosDe(semana).filter(t => t.p === p.id), lunes = deClave(semana);
+  let total = 0;
+  const filas = DIAS.map((n, d) => {
+    const f = masDias(lunes, d);
+    const del = lista.filter(t => t.d === d).map(rango).sort((x, y) => x[0] - y[0]);
+    del.forEach(([a, b]) => { total += b - a; });
+    const partes = [];
+    del.forEach(([a, b], i) => {
+      if (i && a > del[i - 1][1]) partes.push(`<span class="desc">descansa ${hora(del[i - 1][1])} a ${hora(a)}</span>`);
+      partes.push(`${hora(a)} a ${hora(b)}`);
+    });
+    const que = partes.length ? partes.join('<br>') : `<span class="libre">${(p.noPuede || []).includes(d) ? 'No puede' : S.dias[d].cerrado ? 'Cerrado' : 'Libre'}</span>`;
+    return `<div class="sd-fila"><span class="sd-dia">${DIAS_C[d]} ${f.getDate()}</span><span>${que}</span></div>`;
+  }).join('');
+  return `<div class="su-semana"><p class="sd-tit">Su semana · ${textoSemana(semana)}<span>${horas(total)}</span></p>${filas}</div>`;
+}
 function hojaPersona(p) {
   abrirHoja(`<form data-f="persona" data-id="${p.id}">
     <h2>${esc(p.nombre)}</h2>
+    ${semanaDe(p)}
     <label class="campo"><span>Nombre</span><input type="text" name="nombre" value="${esc(p.nombre)}" maxlength="40" required></label>
     <p style="font-weight:600;margin:12px 0 2px">Días que no puede trabajar</p>
     <p class="nota" style="margin:0 0 8px">"Sugerir horario" no la pondrá esos días.</p>
@@ -781,9 +852,15 @@ async function excel() {
       const c = fila.getCell(d + 2);
       const del = suyos.filter(t => t.d === d).sort((x, y) => aMin(x.ini) - aMin(y.ini));
       if (del.length) {
-        c.value = del.map(t => { const [a, b] = rango(t); total += b - a; return `${hora(a)} a ${hora(b)}`; }).join('\n');
+        const lineas = [];
+        del.map(rango).forEach(([a, b], i, rs) => {
+          total += b - a;
+          if (i && a > rs[i - 1][1]) lineas.push(`(descansa ${hora(rs[i - 1][1])} a ${hora(a)})`);
+          lineas.push(`${hora(a)} a ${hora(b)}`);
+        });
+        c.value = lineas.join('\n');
         c.fill = relleno(colorTurno(del[0]));
-        lineasMax = Math.max(lineasMax, del.length);
+        lineasMax = Math.max(lineasMax, lineas.length);
       } else { c.value = 'Libre'; c.font = { color: { argb: 'FF9AA5A0' }, italic: true }; }
       c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     }
@@ -813,9 +890,16 @@ async function excel() {
   pd.getRow(1).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = relleno('#1E6B5E'); c.border = bordes; });
   for (let d = 0; d < 7; d++) {
     const f = masDias(lunes, d);
-    lista.filter(t => t.d === d).sort((x, y) => aMin(x.ini) - aMin(y.ini)).forEach(t => {
+    const delDia = lista.filter(t => t.d === d);
+    [...delDia.map(t => ({ a: rango(t)[0], t })), ...descansosDia(delDia)].sort((x, y) => x.a - y.a).forEach(({ t, a: da, b: db, p: dp }) => {
+      const nomDia = `${DIAS[d]} ${f.getDate()} ${MESES_C[f.getMonth()]}`;
+      if (!t) {
+        const fila = pd.addRow([nomDia, dp.nombre, hora(da), hora(db), '', 'Descanso']);
+        fila.eachCell(c => { c.border = bordes; c.font = { italic: true, color: { argb: 'FF5B6662' } }; });
+        return;
+      }
       const [a, b] = rango(t), fr = franjaEn(a), p = persona(t.p);
-      const fila = pd.addRow([`${DIAS[d]} ${f.getDate()} ${MESES_C[f.getMonth()]}`, p ? p.nombre : '', hora(a), hora(b), Math.round((b - a) / 6) / 10, fr ? fr.nombre : '']);
+      const fila = pd.addRow([nomDia, p ? p.nombre : '', hora(a), hora(b), Math.round((b - a) / 6) / 10, fr ? fr.nombre : '']);
       fila.getCell(6).fill = relleno(fr ? fr.color : SIN_FRANJA);
       fila.eachCell(c => { c.border = bordes; });
     });
@@ -932,10 +1016,12 @@ document.addEventListener('click', e => {
     case 'respaldo': {
       const hoy = new Date();
       descargar(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), `Copia horarios ${hoy.getDate()}-${MESES_C[hoy.getMonth()]}-${hoy.getFullYear()}.json`);
+      marcarCopia('ultima'); pintar();
       aviso('Copia guardada en Descargas. Mándatela por WhatsApp para tenerla segura.');
       break;
     }
     case 'cargar': document.getElementById('archivo').click(); break;
+    case 'copia-despues': marcarCopia('despues'); pintar(); break;
   }
 });
 
