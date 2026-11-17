@@ -88,7 +88,21 @@ p{margin:0}
 .tira{display:flex;height:22px;border-radius:7px;overflow:hidden;margin:10px 0 2px;border:1px solid var(--linea)}
 .tira i{display:block;height:100%}
 .tira i.falta{background:repeating-linear-gradient(135deg,var(--rojo) 0 5px,#F6B8B1 5px 10px)}
-.tira-eti{display:flex;justify-content:space-between;color:var(--suave);font-size:.8rem;margin-bottom:6px}
+.tira-eti{display:flex;justify-content:space-between;color:var(--suave);font-size:.8rem;margin-bottom:2px}
+.ver-quien{display:block;width:100%;border:0;background:none;padding:0;text-align:left;margin-bottom:6px}
+.ver-quien-txt{display:block;color:var(--azulejo);font-weight:700;font-size:.92rem;padding:6px 0;min-height:32px}
+.descanso{display:flex;align-items:center;gap:12px;border:1.5px dashed #B8C2BE;border-radius:10px;padding:8px 12px;margin:6px 0;color:var(--suave);background:repeating-linear-gradient(135deg,#F7F8F7 0 8px,#EEF1EF 8px 16px)}
+.descanso .quien{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.descanso .cuando{font-size:.95rem;text-align:right}
+.descanso .cuando small{display:block;font-size:.78rem}
+.tramo{border:1px solid var(--linea);border-left:6px solid var(--azulejo);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:.97rem}
+.tramo.falta{border-left-color:var(--rojo);background:#FFF8F7}
+.tramo-cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.tramo-cab .marca{margin-left:auto}
+.tramo p{margin-top:2px}
+.tramo p.descansa{color:#3F4A46}
+.tramo small{color:var(--suave)}
+.marca.bien{background:var(--azulejo-claro);color:var(--azulejo-osc)}
 
 .turno{width:100%;display:flex;align-items:center;gap:12px;border:0;border-left:8px solid;border-radius:10px;padding:10px 12px;margin:6px 0;text-align:left;min-height:52px}
 .turno .quien{font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -294,6 +308,43 @@ function huecosDia(d, ivs) {
   return out;
 }
 
+// Qué está haciendo una persona en el minuto A (absoluto de la semana) del día d.
+// Sirve para que el rojo diga POR QUÉ falta gente: alguien descansa, ya salió o no ha llegado.
+function estadoEn(p, d, A, ivs) {
+  if (ivs.some(i => i.t.p === p.id && i.a <= A && A < i.b)) return { tipo: 'trabaja' };
+  const suyos = ivs.filter(i => i.t.p === p.id && i.off === 0 && i.t.d === d);
+  if (!suyos.length) return { tipo: (p.noPuede || []).includes(d) ? 'nopuede' : 'libre' };
+  const antes = suyos.filter(i => i.b <= A), despues = suyos.filter(i => i.a > A);
+  if (antes.length && despues.length) return { tipo: 'descansa', min: Math.min(...despues.map(i => i.a)) };
+  if (despues.length) return { tipo: 'entra', min: Math.min(...despues.map(i => i.a)) };
+  return { tipo: 'salio', min: Math.max(...antes.map(i => i.b)) };
+}
+// El día partido en tramos donde no cambia quién está trabajando ni cuánta gente se necesita.
+function tramosDia(d, ivs) {
+  const w = ventana(d); if (!w) return [];
+  const out = []; let cur = null;
+  for (let t = w[0]; t < w[1]; t += 5) {
+    const A = d * 1440 + t;
+    const ids = [...new Set(ivs.filter(i => i.a <= A && A < i.b).map(i => i.t.p))].sort();
+    const llave = ids.join() + '|' + necesarios(t);
+    if (cur && cur.llave === llave) cur.b = t + 5;
+    else { cur = { a: t, b: t + 5, ids, need: necesarios(t), llave }; out.push(cur); }
+  }
+  return out;
+}
+// "Ana descansa hasta las 5:00 pm. Luis ya salió." para un hueco de a a b.
+function porQue(d, a, b, ivs) {
+  const vistos = new Map();
+  for (let t = a; t < b; t += 5) for (const p of S.personas) {
+    if (vistos.has(p.id)) continue;
+    const e = estadoEn(p, d, d * 1440 + t, ivs);
+    if (e.tipo === 'descansa' || e.tipo === 'salio' || e.tipo === 'entra') vistos.set(p.id, { p, e });
+  }
+  return [...vistos.values()].map(({ p, e }) => e.tipo === 'descansa' ? `${p.nombre} está en descanso hasta las ${hora(e.min)}.`
+    : e.tipo === 'salio' ? `${p.nombre} ya salió (a las ${hora(e.min)}).`
+    : `${p.nombre} todavía no entra (entra a las ${hora(e.min)}).`).join(' ');
+}
+
 function avisos(k) {
   const lista = turnosDe(k), ivs = intervalos(k), out = [];
   for (let d = 0; d < 7; d++) {
@@ -303,7 +354,8 @@ function avisos(k) {
       const txt = h.have === 0
         ? `${DIAS[d]} de ${hora(h.a)} a ${hora(h.b)}: no hay nadie.`
         : `${DIAS[d]} de ${hora(h.a)} a ${hora(h.b)}: hay ${h.have} ${h.have === 1 ? 'persona' : 'personas'} y necesitas ${h.need}.`;
-      out.push({ n: 'rojo', d, txt });
+      const motivo = porQue(d, h.a, h.b, ivs);
+      out.push({ n: 'rojo', d, txt: motivo ? `${txt} ${motivo}` : txt });
     }
   }
   for (const p of S.personas) {
@@ -418,10 +470,53 @@ function tira(d, ivs) {
     const f = franjaEn(t), color = falta ? 'falta' : (f ? f.color : SIN_FRANJA);
     if (cur && cur.color === color) cur.n += 5; else { cur = { color, n: 5 }; partes.push(cur); }
   }
-  return `<div class="tira" aria-hidden="true">${partes.map(p => p.color === 'falta'
+  return `<button class="ver-quien" data-a="quien" data-d="${d}"><div class="tira" aria-hidden="true">${partes.map(p => p.color === 'falta'
     ? `<i class="falta" style="width:${p.n / total * 100}%"></i>`
     : `<i style="width:${p.n / total * 100}%;background:${p.color}"></i>`).join('')}</div>
-    <div class="tira-eti"><span>${hora(w[0])}</span><span>${hora(w[1])}</span></div>`;
+    <div class="tira-eti"><span>${hora(w[0])}</span><span>${hora(w[1])}</span></div>
+    <span class="ver-quien-txt">Ver quién trabaja, quién descansa y quién ya salió ›</span></button>`;
+}
+
+const PALABRA = { descansa: 'En descanso', salio: 'Ya salió', entra: 'Todavía no entra' };
+function hojaQuien(d) {
+  const ivs = intervalos(semana), fecha = masDias(deClave(semana), d);
+  const tramos = tramosDia(d, ivs);
+  const bloques = tramos.map(tr => {
+    const A = d * 1440 + tr.a, falta = tr.ids.length < tr.need;
+    const grupos = { descansa: [], salio: [], entra: [] };
+    for (const p of S.personas) {
+      if (tr.ids.includes(p.id)) continue;
+      const e = estadoEn(p, d, A, ivs);
+      if (grupos[e.tipo]) grupos[e.tipo].push(`${esc(p.nombre)} <small>(${e.tipo === 'descansa' ? 'vuelve' : e.tipo === 'salio' ? 'salió' : 'entra'} a las ${hora(e.min)})</small>`);
+    }
+    const nombres = tr.ids.map(id => persona(id)).filter(Boolean).map(p => esc(p.nombre));
+    return `<div class="tramo ${falta ? 'falta' : ''}">
+      <div class="tramo-cab"><strong>${hora(tr.a)} a ${hora(tr.b)}</strong>
+        <span class="marca ${falta ? '' : 'bien'}">${falta ? `Falta${tr.need - tr.ids.length === 1 ? '' : 'n'} ${tr.need - tr.ids.length}` : 'Completo'}</span></div>
+      <p><b>Trabajando:</b> ${nombres.length ? nombres.join(', ') : 'nadie'}</p>
+      ${Object.keys(PALABRA).map(k => grupos[k].length ? `<p class="${k}"><b>${PALABRA[k]}:</b> ${grupos[k].join(', ')}</p>` : '').join('')}
+    </div>`;
+  }).join('');
+  // Quien viene trabajando desde la noche anterior no cuenta como libre.
+  const trabajaron = new Set(tramos.flatMap(tr => tr.ids));
+  const sinTurno = tipo => S.personas.filter(p => !trabajaron.has(p.id) && estadoEn(p, d, -1e9, ivs).tipo === tipo).map(p => esc(p.nombre));
+  const libres = sinTurno('libre'), noPueden = sinTurno('nopuede');
+  abrirHoja(`<h2>${DIAS[d]} ${fecha.getDate()} ${MESES_C[fecha.getMonth()]} · quién está</h2>
+    <p class="nota" style="margin:0 0 12px">El rojo quiere decir que hay menos gente de la que pediste para esa hora. Aquí ves por qué.</p>
+    ${bloques || '<p>Este día está cerrado.</p>'}
+    ${libres.length ? `<p class="nota"><b>Libres hoy:</b> ${libres.join(', ')}</p>` : ''}
+    ${noPueden.length ? `<p class="nota"><b>No pueden este día:</b> ${noPueden.join(', ')}</p>` : ''}
+    <div class="botones"><button class="btn prim" type="button" data-a="cerrar">Listo</button></div>`);
+}
+
+// El hueco entre dos partes del mismo día de una persona (turno partido) es su descanso.
+function descansosDia(delDia) {
+  const out = [];
+  for (const p of S.personas) {
+    const suyos = delDia.filter(t => t.p === p.id).map(rango).sort((x, y) => x[0] - y[0]);
+    for (let i = 1; i < suyos.length; i++) if (suyos[i][0] > suyos[i - 1][1]) out.push({ p, a: suyos[i - 1][1], b: suyos[i][0] });
+  }
+  return out;
 }
 
 function vistaSemana() {
@@ -451,7 +546,8 @@ function vistaSemana() {
         ${nRojo ? `<span class="marca">${nRojo} por revisar</span>` : nAmb ? `<span class="marca ambar">Ojo</span>` : ''}
         <span class="hor">${w ? `${hora(w[0])} a ${hora(w[1])}` : 'Cerrado'}</span></div>
       ${S.personas.length ? tira(d, ivs) : ''}
-      ${delDia.map(t => {
+      ${[...delDia.map(t => ({ a: rango(t)[0], t })), ...descansosDia(delDia)].sort((x, y) => x.a - y.a).map(({ t, a: da, b: db, p: dp }) => {
+        if (!t) return `<div class="descanso"><span class="quien">${esc(dp.nombre)} descansa</span><span class="cuando">${hora(da)} a ${hora(db)}<small>vuelve a las ${hora(db)}</small></span></div>`;
         const p = persona(t.p), [a, b] = rango(t);
         return `<button class="turno" data-a="editar" data-id="${t.id}" style="background:${colorTurno(t)}40;border-left-color:${colorTurno(t)}">
           <span class="quien">${esc(p ? p.nombre : 'Sin persona')}</span>
@@ -760,6 +856,7 @@ document.addEventListener('click', e => {
       else { pestana = 'personas'; pintar(); window.scrollTo(0, 0); }
       break;
     }
+    case 'quien': hojaQuien(+el.dataset.d); break;
     case 'nuevo': hojaTurno(null, +el.dataset.d); break;
     case 'nuevo-partido': hojaTurno(null, +el.dataset.d, true); break;
     case 'editar': hojaTurno(turnosDe(semana).find(t => t.id === el.dataset.id)); break;
