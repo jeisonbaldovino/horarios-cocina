@@ -30,6 +30,7 @@
   --fuente:"Atkinson Hyperlegible Next",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--fuente);font-size:17px;line-height:1.45;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 button,input,select{font:inherit;color:inherit}
@@ -175,6 +176,30 @@ nav.abajo button[aria-current=page]{color:var(--azulejo);box-shadow:inset 0 3px 
 .nota{color:var(--suave);font-size:.9rem;margin-top:8px}
 .leyenda{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 14px;color:var(--suave);font-size:.9rem}
 .leyenda span{display:inline-flex;align-items:center;gap:6px}
+.llenar{margin:8px 0 2px}
+.sueltos{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 4px;color:var(--suave);font-size:.88rem;margin:2px 0 4px}
+.sueltos .agregar{width:auto;border:0;min-height:40px;margin:0;padding:0 6px;font-weight:600;font-size:.92rem;text-decoration:underline}
+.ausente{width:100%;display:flex;align-items:center;gap:12px;border:1.5px dashed #B8C2BE;border-radius:10px;padding:8px 12px;margin:6px 0;color:var(--suave);background:#F7F8F7;text-align:left;min-height:44px}
+.ausente.nov{border-color:#F5D6A8;background:var(--ambar-claro);color:var(--ambar)}
+.ausente .quien{font-weight:700;flex:0 1 auto;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tinta)}
+.ausente .cuando{font-size:.92rem;text-align:right;flex:1;min-width:0}
+.lista-semana{background:var(--azulejo-claro);border:1.5px solid #B9D6CF;border-radius:var(--radio);padding:14px 16px;margin-bottom:16px}
+.lista-semana.ambar{background:var(--ambar-claro);border-color:#F5D6A8}
+.lista-semana strong{display:block;font-size:1.1rem}
+.lista-semana .acciones{margin:12px 0 0}
+.pl-fila{border:1.5px solid var(--linea);border-radius:12px;padding:10px 12px;margin:10px 0}
+.pl-cab{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+.pl-cab strong{font-size:1.05rem}
+.pl-cab span{color:var(--suave);font-size:.85rem}
+.pl-modos{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pl-modos button,.pl-op button{min-height:44px;border-radius:10px;border:1.5px solid var(--linea);background:#fff;font-weight:600;font-size:.9rem;padding:4px 2px}
+.pl-modos button[aria-pressed=true],.pl-op button[aria-pressed=true]{background:var(--azulejo);border-color:var(--azulejo);color:#fff}
+.pl-op{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.pl-fila .dos{margin-top:8px}
+.pl-fila label.campo{margin:8px 0 0}
+.pl-fila label.campo>span{font-size:.9rem;margin-bottom:4px}
+.pl-igual{color:var(--suave);font-size:.92rem;margin-top:8px}
+.pl-fila .error{margin-top:8px}
 .leyenda b{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
 </style>
 </head>
@@ -213,7 +238,7 @@ function estadoNuevo() {
       { id: uid(), nombre: 'Noche', desde: '18:00', hasta: '22:00', color: '#A5B4FC', min: 1 },
     ],
     maxSemana: 42, maxTurno: 12, turnoNormal: 8,
-    personas: [], semanas: {},
+    personas: [], semanas: {}, marcas: {},
   };
 }
 
@@ -242,11 +267,22 @@ function limpiar(x) {
     semanas[k] = x.semanas[k].filter(t => t && ES_ID.test(t.id) && ES_ID.test(t.p) && Number.isInteger(t.d) && t.d >= 0 && t.d < 7 && ES_HORA.test(t.ini) && ES_HORA.test(t.fin) && t.ini !== t.fin)
       .map(t => ({ id: t.id, p: t.p, d: t.d, ini: t.ini, fin: t.fin }));
   }
+  // Descansos y novedades: la novedad por horas trae ini/fin (la ventana en que NO está); sin ellos es de todo el día.
+  const ids = new Set(personas.map(p => p.id)), marcas = {};
+  if (x.marcas && typeof x.marcas === 'object') for (const k of Object.keys(x.marcas)) {
+    if (!ES_SEMANA.test(k) || !Array.isArray(x.marcas[k])) continue;
+    marcas[k] = x.marcas[k].filter(m => m && ES_ID.test(m.id) && ids.has(m.p) && Number.isInteger(m.d) && m.d >= 0 && m.d < 7 && (m.tipo === 'descanso' || m.tipo === 'novedad'))
+      .map(m => {
+        const out = { id: m.id, p: m.p, d: m.d, tipo: m.tipo, motivo: m.tipo === 'novedad' ? (textoEn(m.motivo, 40, '').trim() || 'Novedad') : '' };
+        if (m.tipo === 'novedad' && ES_HORA.test(m.ini) && ES_HORA.test(m.fin) && m.ini !== m.fin) { out.ini = m.ini; out.fin = m.fin; }
+        return out;
+      });
+  }
   return {
     v: 1, nombre: textoEn(x.nombre, 30, base.nombre), lugar: textoEn(x.lugar, 50, base.lugar), dias,
     franjas: franjas.length ? franjas : base.franjas,
     maxSemana: numEn(x.maxSemana, 1, 80, 42), maxTurno: numEn(x.maxTurno, 1, 24, 12), turnoNormal: numEn(x.turnoNormal, 1, 16, 8),
-    personas, semanas,
+    personas, semanas, marcas,
   };
 }
 
@@ -258,7 +294,16 @@ function cargar() {
   } catch (e) { guardadoOk = false; }
   return estadoNuevo();
 }
+// Una novedad por horas solo tiene sentido dentro de un turno: si el turno se borró o se movió, se va.
+function quitarHuerfanas() {
+  for (const k in S.marcas) S.marcas[k] = S.marcas[k].filter(m => !m.ini || turnosDe(k).some(t => {
+    if (t.p !== m.p || t.d !== m.d) return false;
+    const r = rango(t), [a, b] = ausEnTurno(rangoAus(m), r);
+    return r[0] <= a && b <= r[1];
+  }));
+}
 function guardar() {
+  quitarHuerfanas();
   try { localStorage.setItem(KEY, JSON.stringify(S)); guardadoOk = true; }
   catch (e) { guardadoOk = false; }
 }
@@ -289,6 +334,22 @@ let avisosAbiertos = false;
 
 const turnosDe = k => S.semanas[k] || [];
 const persona = id => S.personas.find(p => p.id === id);
+const marcasDe = k => (S.marcas && S.marcas[k]) || [];
+const marcaDe = (k, pid, d) => marcasDe(k).find(m => m.p === pid && m.d === d);
+// Descanso o novedad de todo el día: esa persona no trabaja ese día.
+const marcaTodoDia = (k, pid, d) => marcasDe(k).find(m => m.p === pid && m.d === d && (m.tipo === 'descanso' || !m.ini));
+const rangoAus = m => { const a = aMin(m.ini); let b = aMin(m.fin); if (b <= a) b += 1440; return [a, b]; };
+const ausenciasDe = (k, pid, d) => marcasDe(k).filter(m => m.p === pid && m.d === d && m.tipo === 'novedad' && m.ini).map(m => [...rangoAus(m), m]);
+// Las partes de un turno en que la persona sí está: se le recortan las novedades por horas.
+// Una ausencia de 2 a 3 am dentro de un turno de 10 pm a 6 am cae al día siguiente del turno.
+const ausEnTurno = ([a, b], [x, y]) => a < x && a + 1440 < y ? [a + 1440, b + 1440] : [a, b];
+function piezas(k, t) {
+  const r = rango(t);
+  let ps = [r];
+  for (const [a, b] of ausenciasDe(k, t.p, t.d).map(x => ausEnTurno(x, r))) ps = ps.flatMap(([x, y]) => b <= x || a >= y ? [[x, y]] : [[x, a], [b, y]].filter(([u, v]) => v > u));
+  return ps;
+}
+const minTurno = (k, t) => piezas(k, t).reduce((s, [a, b]) => s + b - a, 0);
 
 function ventana(d) {
   const x = S.dias[d];
@@ -311,10 +372,10 @@ const colorTurno = t => { const f = franjaEn(aMin(t.ini)); return f ? f.color : 
 // para que un turno de domingo en la noche cuente en la madrugada del lunes.
 function intervalos(k, lista) {
   const out = [];
-  const meter = (arr, off) => arr.forEach(t => { const [a, b] = rango(t); out.push({ t, a: off + t.d * 1440 + a, b: off + t.d * 1440 + b, off }); });
-  meter(lista || turnosDe(k), 0);
-  meter(turnosDe(claveMas(k, -7)), -7 * 1440);
-  meter(turnosDe(claveMas(k, 7)), 7 * 1440);
+  const meter = (arr, off, kk) => arr.forEach(t => piezas(kk, t).forEach(([a, b]) => out.push({ t, a: off + t.d * 1440 + a, b: off + t.d * 1440 + b, off })));
+  meter(lista || turnosDe(k), 0, k);
+  meter(turnosDe(claveMas(k, -7)), -7 * 1440, claveMas(k, -7));
+  meter(turnosDe(claveMas(k, 7)), 7 * 1440, claveMas(k, 7));
   return out;
 }
 function genteEn(ivs, A) {
@@ -337,8 +398,12 @@ function huecosDia(d, ivs) {
 
 // Qué está haciendo una persona en el minuto A (absoluto de la semana) del día d.
 // Sirve para que el rojo diga POR QUÉ falta gente: alguien descansa, ya salió o no ha llegado.
-function estadoEn(p, d, A, ivs) {
+function estadoEn(p, d, A, ivs, k = semana) {
   if (ivs.some(i => i.t.p === p.id && i.a <= A && A < i.b)) return { tipo: 'trabaja' };
+  const todo = marcaTodoDia(k, p.id, d);
+  if (todo) return todo.tipo === 'descanso' ? { tipo: 'descanso' } : { tipo: 'novedad', motivo: todo.motivo };
+  const aus = ausenciasDe(k, p.id, d).flatMap(([a, b, m]) => [[a, b, m], [a + 1440, b + 1440, m]]).find(([a, b]) => d * 1440 + a <= A && A < d * 1440 + b);
+  if (aus) return { tipo: 'novedad', motivo: aus[2].motivo, min: aus[1] };
   const suyos = ivs.filter(i => i.t.p === p.id && i.off === 0 && i.t.d === d);
   if (!suyos.length) return { tipo: (p.noPuede || []).includes(d) ? 'nopuede' : 'libre' };
   const antes = suyos.filter(i => i.b <= A), despues = suyos.filter(i => i.a > A);
@@ -360,24 +425,33 @@ function tramosDia(d, ivs) {
   return out;
 }
 // "Ana descansa hasta las 5:00 pm. Luis ya salió." para un hueco de a a b.
-function porQue(d, a, b, ivs) {
+function porQue(d, a, b, ivs, k = semana) {
   const vistos = new Map();
   for (let t = a; t < b; t += 5) for (const p of S.personas) {
     if (vistos.has(p.id)) continue;
-    const e = estadoEn(p, d, d * 1440 + t, ivs);
-    if (e.tipo === 'descansa' || e.tipo === 'salio' || e.tipo === 'entra') vistos.set(p.id, { p, e });
+    const e = estadoEn(p, d, d * 1440 + t, ivs, k);
+    if (['descansa', 'salio', 'entra', 'novedad', 'descanso'].includes(e.tipo)) vistos.set(p.id, { p, e });
   }
-  return [...vistos.values()].map(({ p, e }) => e.tipo === 'descansa' ? `${p.nombre} está en descanso hasta las ${hora(e.min)}.`
+  return [...vistos.values()].map(({ p, e }) => e.tipo === 'novedad' ? `${p.nombre} no está (${e.motivo})${e.min != null ? ` hasta las ${hora(e.min)}` : ' en todo el día'}.`
+    : e.tipo === 'descanso' ? `${p.nombre} tiene el día de descanso.`
+    : e.tipo === 'descansa' ? `${p.nombre} está en descanso hasta las ${hora(e.min)}.`
     : e.tipo === 'salio' ? `${p.nombre} ya salió (a las ${hora(e.min)}).`
     : `${p.nombre} todavía no entra (entra a las ${hora(e.min)}).`).join(' ');
 }
 
 // Un día abierto sin ningún turno es un día que ella todavía no ha llenado, no una alarma.
-function diaVacio(d, lista, ivs) {
-  const w = ventana(d); if (!w || lista.some(t => t.d === d)) return false;
+function diaVacio(d, lista, ivs, k = semana) {
+  const w = ventana(d); if (!w || lista.some(t => t.d === d) || marcasDe(k).some(m => m.d === d)) return false;
   const h = huecosDia(d, ivs);
   return h.length === 1 && h[0].have === 0 && h[0].a === w[0] && h[0].b === w[1];
 }
+// Quién no tiene nada asignado ese día: ni turno, ni descanso, ni novedad de todo el día.
+function faltanDia(k, d) {
+  if (!ventana(d)) return [];
+  const lista = turnosDe(k);
+  return S.personas.filter(p => !lista.some(t => t.p === p.id && t.d === d) && !marcaTodoDia(k, p.id, d));
+}
+const semanaLista = k => S.personas.length > 0 && [0, 1, 2, 3, 4, 5, 6].every(d => !faltanDia(k, d).length);
 const unir = xs => xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1];
 
 function avisos(k) {
@@ -385,12 +459,14 @@ function avisos(k) {
   for (let d = 0; d < 7; d++) {
     if (S.dias[d].cerrado && lista.some(t => t.d === d))
       out.push({ n: 'ambar', d, txt: `El ${DIAS[d].toLowerCase()} está marcado como cerrado, pero tiene turnos.` });
-    if (diaVacio(d, lista, ivs)) { vacios.push(d); continue; }
+    if (diaVacio(d, lista, ivs, k)) { vacios.push(d); continue; }
+    const faltan = faltanDia(k, d);
+    if (faltan.length) out.push({ n: 'gris', d, txt: `Al ${DIAS[d].toLowerCase()} le falta: ${unir(faltan.map(p => p.nombre))}.` });
     for (const h of huecosDia(d, ivs)) {
       const txt = h.have === 0
         ? `${DIAS[d]} de ${hora(h.a)} a ${hora(h.b)}: no hay nadie.`
         : `${DIAS[d]} de ${hora(h.a)} a ${hora(h.b)}: hay ${h.have} ${h.have === 1 ? 'persona' : 'personas'} y necesitas ${h.need}.`;
-      const motivo = porQue(d, h.a, h.b, ivs);
+      const motivo = porQue(d, h.a, h.b, ivs, k);
       out.push({ n: 'rojo', d, txt: motivo ? `${txt} ${motivo}` : txt });
     }
   }
@@ -408,13 +484,15 @@ function avisos(k) {
       out.push({ n: 'rojo', d: dia, txt: `A ${p.nombre} le quedaron dos turnos que se cruzan el ${DIAS[dia].toLowerCase()} (${hora(aMin(A.t.ini))} a ${hora(aMin(A.t.fin))} y ${hora(aMin(B.t.ini))} a ${hora(aMin(B.t.fin))}).` });
     }
     const suyos = lista.filter(t => t.p === p.id);
-    if (lista.length && !suyos.length) { out.push({ n: 'gris', d: -1, txt: `${p.nombre} no tiene turnos esta semana. Si es a propósito, no pasa nada.` }); continue; }
-    const total = suyos.reduce((s, t) => { const [a, b] = rango(t); return s + b - a; }, 0);
+    for (const m of marcasDe(k).filter(m => m.p === p.id && (m.tipo === 'descanso' || !m.ini)))
+      if (suyos.some(t => t.d === m.d)) out.push({ n: 'ambar', d: m.d, txt: `Le pusiste turno a ${p.nombre} el ${DIAS[m.d].toLowerCase()}, pero ${m.tipo === 'descanso' ? 'estaba de descanso' : `tenía novedad: ${m.motivo}`}.` });
+    if (lista.length && !suyos.length && !marcasDe(k).some(m => m.p === p.id)) { out.push({ n: 'gris', d: -1, txt: `${p.nombre} no tiene turnos esta semana. Si es a propósito, no pasa nada.` }); continue; }
+    const total = suyos.reduce((s, t) => s + minTurno(k, t), 0);
     if (total > S.maxSemana * 60) out.push({ n: 'ambar', d: -1, txt: `${p.nombre} va en ${horas(total)} esta semana y tu máximo es ${S.maxSemana} h.` });
     if (new Set(suyos.map(t => t.d)).size === 7) out.push({ n: 'ambar', d: -1, txt: `${p.nombre} trabaja los 7 días y no tiene día libre.` });
     for (let d = 0; d < 7; d++) {
       const delDia = suyos.filter(t => t.d === d);
-      const suma = delDia.reduce((s, t) => { const [a, b] = rango(t); return s + b - a; }, 0);
+      const suma = delDia.reduce((s, t) => s + minTurno(k, t), 0);
       if (suma > S.maxTurno * 60) out.push({ n: 'ambar', d, txt: delDia.length > 1
         ? `${p.nombre} el ${DIAS[d].toLowerCase()} suma ${horas(suma)} entre sus ${delDia.length} partes y tu máximo es ${S.maxTurno} h.`
         : `El turno de ${p.nombre} el ${DIAS[d].toLowerCase()} es de ${horas(suma)} y tu máximo es ${S.maxTurno} h.` });
@@ -439,7 +517,7 @@ function sugerir(modo) {
   const L = Math.min(S.turnoNormal, S.maxTurno) * 60;
   const min = {}, dias = {};
   S.personas.forEach(p => { min[p.id] = 0; dias[p.id] = new Set(); });
-  lista.forEach(t => { if (min[t.p] == null) return; const [a, b] = rango(t); min[t.p] += b - a; dias[t.p].add(t.d); });
+  lista.forEach(t => { if (min[t.p] == null) return; min[t.p] += minTurno(k, t); dias[t.p].add(t.d); });
   const giro = Math.round(deClave(k).getTime() / 6048e5);
   const orden = p => (S.personas.indexOf(p) + giro) % S.personas.length;
   let creados = 0, falto = false;
@@ -456,7 +534,7 @@ function sugerir(modo) {
       const fin = Math.min(t + L, w[1]), ini = Math.max(w[0], fin - L), largo = fin - ini;
       const A = d * 1440 + ini, B = d * 1440 + fin;
       const cand = S.personas.filter(p =>
-        !(p.noPuede || []).includes(d) && !dias[p.id].has(d) && dias[p.id].size < 6 &&
+        !(p.noPuede || []).includes(d) && !marcaTodoDia(k, p.id, d) && !dias[p.id].has(d) && dias[p.id].size < 6 &&
         min[p.id] + largo <= S.maxSemana * 60 &&
         !ivs.some(i => i.t.p === p.id && i.a < B && A < i.b));
       if (!cand.length) { for (let x = t; x < fin; x += 5) imposible.add(x); falto = true; continue; }
@@ -528,17 +606,18 @@ function tira(d, ivs, vacio) {
     <span class="ver-quien-txt">Ver quién trabaja, quién descansa y quién ya salió ›</span></button>`;
 }
 
-const PALABRA = { descansa: 'En descanso', salio: 'Ya salió', entra: 'Todavía no entra' };
+const PALABRA = { descansa: 'En descanso', novedad: 'Con novedad', salio: 'Ya salió', entra: 'Todavía no entra' };
 function hojaQuien(d) {
   const ivs = intervalos(semana), fecha = masDias(deClave(semana), d);
   const tramos = tramosDia(d, ivs);
   const bloques = tramos.map(tr => {
     const A = d * 1440 + tr.a, falta = tr.ids.length < tr.need;
-    const grupos = { descansa: [], salio: [], entra: [] };
+    const grupos = { descansa: [], novedad: [], salio: [], entra: [] };
     for (const p of S.personas) {
       if (tr.ids.includes(p.id)) continue;
       const e = estadoEn(p, d, A, ivs);
-      if (grupos[e.tipo]) grupos[e.tipo].push(`${esc(p.nombre)} <small>(${e.tipo === 'descansa' ? 'vuelve' : e.tipo === 'salio' ? 'salió' : 'entra'} a las ${hora(e.min)})</small>`);
+      if (e.tipo === 'novedad' && e.min != null) grupos.novedad.push(`${esc(p.nombre)} <small>(${esc(e.motivo)}, vuelve a las ${hora(e.min)})</small>`);
+      else if (e.tipo !== 'novedad' && grupos[e.tipo]) grupos[e.tipo].push(`${esc(p.nombre)} <small>(${e.tipo === 'descansa' ? 'vuelve' : e.tipo === 'salio' ? 'salió' : 'entra'} a las ${hora(e.min)})</small>`);
     }
     const nombres = tr.ids.map(id => persona(id)).filter(Boolean).map(p => esc(p.nombre));
     return `<div class="tramo ${falta ? 'falta' : ''}">
@@ -551,10 +630,13 @@ function hojaQuien(d) {
   // Quien viene trabajando desde la noche anterior no cuenta como libre.
   const trabajaron = new Set(tramos.flatMap(tr => tr.ids));
   const sinTurno = tipo => S.personas.filter(p => !trabajaron.has(p.id) && estadoEn(p, d, -1e9, ivs).tipo === tipo).map(p => esc(p.nombre));
-  const libres = sinTurno('libre'), noPueden = sinTurno('nopuede');
+  const libres = sinTurno('libre'), noPueden = sinTurno('nopuede'), descansan = sinTurno('descanso');
+  const conNovedad = S.personas.filter(p => !trabajaron.has(p.id) && marcaTodoDia(semana, p.id, d)?.tipo === 'novedad').map(p => `${esc(p.nombre)} (${esc(marcaDe(semana, p.id, d).motivo)})`);
   abrirHoja(`<h2>${DIAS[d]} ${fecha.getDate()} ${MESES_C[fecha.getMonth()]} · quién está</h2>
     <p class="nota" style="margin:0 0 12px">El rojo quiere decir que hay menos gente de la que pediste para esa hora. Aquí ves por qué.</p>
     ${bloques || '<p>Este día está cerrado.</p>'}
+    ${descansan.length ? `<p class="nota"><b>Descansan hoy:</b> ${descansan.join(', ')}</p>` : ''}
+    ${conNovedad.length ? `<p class="nota"><b>No vienen hoy:</b> ${conNovedad.join(', ')}</p>` : ''}
     ${libres.length ? `<p class="nota"><b>Libres hoy:</b> ${libres.join(', ')}</p>` : ''}
     ${noPueden.length ? `<p class="nota"><b>No pueden este día:</b> ${noPueden.join(', ')}</p>` : ''}
     <div class="botones"><button class="btn prim" type="button" data-a="cerrar">Listo</button></div>`);
@@ -595,6 +677,7 @@ function vistaSemana() {
     dias += `<section class="dia ${w ? '' : 'cerrado'}" id="dia-${d}">
       <div class="dia-cab"><h3>${DIAS[d]} <span class="fecha">${fecha.getDate()} ${MESES_C[fecha.getMonth()]}</span></h3>
         ${nRojo ? `<span class="marca">${nRojo} por revisar</span>` : w && diaVacio(d, lista, ivs) ? '<span class="marca gris">Sin turnos</span>' : nAmb ? `<span class="marca ambar">Ojo</span>` : ''}
+        ${w && !diaVacio(d, lista, ivs) && faltanDia(semana, d).length ? `<span class="marca gris">${faltanDia(semana, d).length === 1 ? 'Falta 1' : `Faltan ${faltanDia(semana, d).length}`}</span>` : ''}
         <span class="hor">${w ? `${hora(w[0])} a ${hora(w[1])}` : 'Cerrado'}</span></div>
       ${S.personas.length ? tira(d, ivs, diaVacio(d, lista, ivs)) : ''}
       ${[...delDia.map(t => ({ a: rango(t)[0], t })), ...descansosDia(delDia)].sort((x, y) => x.a - y.a).map(({ t, a: da, b: db, p: dp }) => {
@@ -602,9 +685,16 @@ function vistaSemana() {
         const p = persona(t.p), [a, b] = rango(t);
         return `<button class="turno" data-a="editar" data-id="${t.id}" style="background:${colorTurno(t)}40;border-left-color:${colorTurno(t)}">
           <span class="quien">${esc(p ? p.nombre : 'Sin persona')}</span>
-          <span class="cuando">${hora(a)} a ${hora(b)}<small>${horas(b - a)}${b > 1440 ? ' · sale al día siguiente' : ''}</small></span></button>`;
+          <span class="cuando">${hora(a)} a ${hora(b)}<small>${horas(minTurno(semana, t))}${b > 1440 ? ' · sale al día siguiente' : ''}</small></span></button>`;
       }).join('')}
-      <div class="dos"><button class="agregar" data-a="nuevo" data-d="${d}">+ Agregar turno</button>
+      ${S.personas.map(p => marcaDe(semana, p.id, d)).filter(Boolean).map(m => {
+        const p = persona(m.p), [a, b] = m.ini ? rangoAus(m) : [];
+        const que = m.tipo === 'descanso' ? 'Descanso' : m.ini ? `${esc(m.motivo)} · no está de ${hora(a)} a ${hora(b)}` : `${esc(m.motivo)} · no viene`;
+        const cuerpo = `<span class="quien">${esc(p.nombre)}</span><span class="cuando">${que}</span>`;
+        return w ? `<button class="ausente ${m.tipo === 'novedad' ? 'nov' : ''}" data-a="llenar" data-d="${d}">${cuerpo}</button>` : `<div class="ausente ${m.tipo === 'novedad' ? 'nov' : ''}">${cuerpo}</div>`;
+      }).join('')}
+      ${w && S.personas.length ? `<button class="btn prim ancho llenar" data-a="llenar" data-d="${d}">${lista.some(t => t.d === d) || marcasDe(semana).some(m => m.d === d) ? 'Cambiar' : 'Llenar'} el ${DIAS[d].toLowerCase()}</button>` : ''}
+      <div class="sueltos">${w && S.personas.length ? 'o un turno suelto:' : ''}<button class="agregar" data-a="nuevo" data-d="${d}">+ Agregar turno</button>
         <button class="agregar" data-a="nuevo-partido" data-d="${d}">+ Turno partido</button></div>
     </section>`;
   }
@@ -625,18 +715,21 @@ function vistaSemana() {
       <button class="btn" data-a="excel" ${lista.length ? '' : 'disabled'}>Descargar Excel</button>
     </div>` : ''}
     ${guardadoOk ? '' : `<div class="error">Este celular no está guardando los cambios. Abre la app desde Chrome normal, no en modo incógnito.</div>`}
+    ${semanaLista(semana) ? `<div class="lista-semana ${rojos ? 'ambar' : ''}"><strong>¡La semana está lista!</strong>
+      <p>${rojos ? `Ya está llena, pero todavía hay ${rojos === 1 ? 'un hueco' : `${rojos} huecos`} con poca gente. Míralo en los avisos.` : 'Todo el equipo tiene su horario. Descárgala para compartirla.'}</p>
+      <div class="acciones"><button class="btn prim" data-a="excel">Descargar en Excel</button><button class="btn prim" data-a="imagen">Descargar imagen</button></div></div>` : ''}
     ${recordatorioCopia()}
     ${cajaAvisos}
     ${S.personas.length ? leyenda : ''}
     ${dias}
-    ${lista.length ? `<button class="btn texto ancho" data-a="vaciar">Borrar todos los turnos de esta semana</button>` : ''}`;
+    ${lista.length || marcasDe(semana).length ? `<button class="btn texto ancho" data-a="vaciar">Borrar todos los turnos de esta semana</button>` : ''}`;
 }
 
 function vistaPersonas() {
   const lista = turnosDe(semana);
   const filas = S.personas.map(p => {
     const suyos = lista.filter(t => t.p === p.id);
-    const total = suyos.reduce((s, t) => { const [a, b] = rango(t); return s + b - a; }, 0);
+    const total = suyos.reduce((s, t) => s + minTurno(semana, t), 0);
     const np = (p.noPuede || []).map(d => DIAS_C[d]).join(', ');
     return `<button class="persona-btn" data-a="persona" data-id="${p.id}"><span class="inicial">${esc(p.nombre.trim().charAt(0).toUpperCase())}</span>
       <span class="nom" style="flex:1"><strong>${esc(p.nombre)}</strong><span style="color:var(--suave);font-size:.9rem">${horas(total)} esta semana${np ? ` · No puede: ${np}` : ''}</span></span><span aria-hidden="true">›</span></button>`;
@@ -732,6 +825,107 @@ function cerrarHoja(desdeAtras) {
 // El botón "atrás" de Android cierra la ventana en vez de salirse de la app.
 window.addEventListener('popstate', () => { if (hojaAbierta) cerrarHoja(true); });
 
+// ---------- Planilla del día: todo el equipo en una pantalla, como un renglón de Excel ----------
+function siguienteDiaAbierto(d) { for (let x = d + 1; x < 7; x++) if (ventana(x)) return x; return null; }
+// Lo que trae cada fila al abrir: lo de ese día → lo del mismo día la semana pasada (sin novedades) →
+// descanso si esa persona no puede → turno normal desde la apertura.
+function filaInicial(p, d) {
+  const w = ventana(d) || [aMin('06:00'), aMin('14:00')], L = S.turnoNormal * 60;
+  const normal = { modo: 'normal', ini: hhmm(w[0]), fin: hhmm(Math.min(w[0] + L, w[1])) };
+  const conPartes = (ts, base) => {
+    ts = ts.slice().sort((x, y) => aMin(x.ini) - aMin(y.ini));
+    if (ts.length === 1) return { ...base, ini: ts[0].ini, fin: ts[0].fin, sub: 'normal' };
+    return { ...base, ini: ts[0].ini, fin: ts[0].fin, ini2: ts[1].ini, fin2: ts[1].fin, sub: 'partido' };
+  };
+  const hoy = turnosDe(semana).filter(t => t.p === p.id && t.d === d), m = marcaDe(semana, p.id, d);
+  // Dos turnos que se montan no caben en "partido": se dejan igual para no bloquear el guardado.
+  const rs = hoy.map(rango).sort((x, y) => x[0] - y[0]);
+  if (hoy.length >= 3 || (hoy.length === 2 && (rs[0][1] > 1440 || rs[1][0] < rs[0][1]))) return { modo: 'igual', n: hoy.length };
+  // Si choca un turno con un descanso o novedad de todo el día, manda el turno (no se borra al guardar).
+  if (hoy.length && (!m || !m.ini)) return conPartes(hoy, { modo: hoy.length === 2 ? 'partido' : 'normal' });
+  if (m && m.tipo === 'descanso') return { modo: 'descanso' };
+  if (m && m.tipo === 'novedad' && !m.ini) return { modo: 'novedad', motivo: m.motivo, todo: true };
+  if (m && m.tipo === 'novedad') return { ...conPartes(hoy.length ? hoy : [normal], { modo: 'novedad', motivo: m.motivo, todo: false }), aus_ini: m.ini, aus_fin: m.fin };
+  if (hoy.length) return conPartes(hoy, { modo: hoy.length === 2 ? 'partido' : 'normal' });
+  const kAnt = claveMas(semana, -7), ant = turnosDe(kAnt).filter(t => t.p === p.id && t.d === d), mAnt = marcaDe(kAnt, p.id, d);
+  if (mAnt && mAnt.tipo === 'descanso') return { modo: 'descanso' };
+  if (ant.length === 1 || ant.length === 2) return conPartes(ant, { modo: ant.length === 2 ? 'partido' : 'normal' });
+  if ((p.noPuede || []).includes(d)) return { modo: 'descanso' };
+  return normal;
+}
+const MODOS = [['normal', 'Normal'], ['partido', 'Partido'], ['descanso', 'Descanso'], ['novedad', 'Novedad']];
+function filaPlanilla(p, d) {
+  const f = filaInicial(p, d), w = ventana(d) || [aMin('06:00'), aMin('22:00')], L = S.turnoNormal * 60;
+  const ini = f.ini || hhmm(w[0]), fin = f.fin || hhmm(Math.min(w[0] + L / 2, w[1]));
+  const ini2 = f.ini2 || hhmm(Math.max(w[1] - L / 2, aMin(fin))), fin2 = f.fin2 || hhmm(w[1]);
+  const sub = f.sub || (f.modo === 'partido' ? 'partido' : 'normal');
+  const hora2 = (k, v, t) => `<label class="campo"><span>${t}</span><input type="time" data-k="${k}" value="${v}"></label>`;
+  return `<div class="pl-fila" data-p="${p.id}" data-m="${f.modo}" data-todo="${f.todo === false ? 0 : 1}" data-sub="${sub}">
+    <div class="pl-cab"><strong>${esc(p.nombre)}</strong>${(p.noPuede || []).includes(d) ? '<span>(ese día no puede)</span>' : ''}</div>
+    <div class="pl-modos" role="group" aria-label="Qué le toca a ${esc(p.nombre)}">${MODOS.map(([m, t]) => `<button type="button" data-a="pl-modo" data-m="${m}" aria-pressed="${f.modo === m}">${t}</button>`).join('')}</div>
+    <p class="pl-igual" data-parte="igual">Tiene otro horario ese día (${f.n || 0} turnos): se deja igual. Si escoges otra opción, se reemplaza.</p>
+    <div data-parte="nov"><label class="campo"><span>¿Qué novedad?</span><input type="text" data-k="motivo" maxlength="40" placeholder="Ej: Cita médica, Incapacidad" value="${esc(f.motivo || '')}"></label>
+      <div class="pl-op"><button type="button" data-a="pl-todo" data-v="1" aria-pressed="${f.todo !== false}">No viene en todo el día</button><button type="button" data-a="pl-todo" data-v="0" aria-pressed="${f.todo === false}">Solo unas horas</button></div></div>
+    <div class="pl-op" data-parte="sub"><button type="button" data-a="pl-sub" data-v="normal" aria-pressed="${sub === 'normal'}">Su turno: normal</button><button type="button" data-a="pl-sub" data-v="partido" aria-pressed="${sub === 'partido'}">Su turno: partido</button></div>
+    <div class="dos" data-parte="h1">${hora2('ini', ini, 'Entra')}${hora2('fin', fin, 'Sale')}</div>
+    <div class="dos" data-parte="h2">${hora2('ini2', ini2, 'Vuelve a entrar')}${hora2('fin2', fin2, 'Sale')}</div>
+    <div class="dos" data-parte="aus">${hora2('aus_ini', f.aus_ini || ini, 'No está desde')}${hora2('aus_fin', f.aus_fin || hhmm(aMin(ini) + 120), 'Hasta')}</div>
+    <div class="error" hidden></div>
+  </div>`;
+}
+// Muestra en cada fila solo los campos del modo escogido.
+function ajustarFila(fila) {
+  const m = fila.dataset.m, todo = fila.dataset.todo === '1', sub = fila.dataset.sub;
+  const conTurno = m === 'normal' || m === 'partido' || (m === 'novedad' && !todo);
+  const partido = m === 'partido' || (m === 'novedad' && !todo && sub === 'partido');
+  const ver = { igual: m === 'igual', nov: m === 'novedad', sub: m === 'novedad' && !todo, h1: conTurno, h2: conTurno && partido, aus: m === 'novedad' && !todo };
+  fila.querySelectorAll('[data-parte]').forEach(el => { el.hidden = !ver[el.dataset.parte]; });
+  fila.querySelectorAll('[data-a=pl-modo]').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === m));
+  fila.querySelectorAll('[data-a=pl-todo]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.v === '1') === todo));
+  fila.querySelectorAll('[data-a=pl-sub]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === sub));
+}
+function hojaDia(d, desde) {
+  const fecha = masDias(deClave(semana), d), sig = siguienteDiaAbierto(d);
+  abrirHoja(`<form data-f="dia" novalidate data-d="${d}" data-desde="${desde != null ? desde : ''}">
+    <h2>${DIAS[d]} ${fecha.getDate()} ${MESES_C[fecha.getMonth()]}</h2>
+    <p class="nota" style="margin:0 0 4px">${ventana(d) ? `Abre de ${hora(ventana(d)[0])} a ${hora(ventana(d)[1])}. ` : ''}Cada persona ya viene con un horario. Cambia solo lo que sea distinto.</p>
+    ${S.personas.map(p => filaPlanilla(p, d)).join('')}
+    <div class="error" id="err" hidden></div>
+    <div class="botones">
+      ${sig != null ? `<button class="btn prim" type="submit" data-sig="${sig}">Guardar y seguir con el ${DIAS[sig].toLowerCase()} →</button>` : ''}
+      <button class="btn ${sig != null ? '' : 'prim'}" type="submit">Guardar y cerrar</button>
+      <button class="btn texto" type="button" data-a="cerrar">Cancelar</button>
+    </div></form>`, h => h.querySelectorAll('.pl-fila').forEach(ajustarFila));
+}
+// Lee y revisa una fila. Devuelve { turnos, marca } o { error }.
+function leerFila(fila, d) {
+  const v = k => fila.querySelector(`[data-k=${k}]`).value, p = fila.dataset.p, m = fila.dataset.m;
+  if (m === 'igual') return { igual: true };
+  if (m === 'descanso') return { turnos: [], marca: { id: uid(), p, d, tipo: 'descanso', motivo: '' } };
+  const todo = fila.dataset.todo === '1', motivo = v('motivo').trim();
+  if (m === 'novedad' && !motivo) return { error: 'Escribe cuál es la novedad (por ejemplo: Cita médica).' };
+  if (m === 'novedad' && todo) return { turnos: [], marca: { id: uid(), p, d, tipo: 'novedad', motivo } };
+  const partido = m === 'partido' || (m === 'novedad' && fila.dataset.sub === 'partido');
+  const ini = v('ini'), fin = v('fin');
+  if (!ini || !fin) return { error: 'Pon la hora de entrada y la de salida.' };
+  if (ini === fin) return { error: 'La hora de salida no puede ser igual a la de entrada.' };
+  const partes = [[ini, fin]];
+  if (partido) {
+    const ini2 = v('ini2'), fin2 = v('fin2');
+    if (!ini2 || !fin2) return { error: 'Pon la hora de entrada y la de salida de la segunda parte.' };
+    if (ini2 === fin2) return { error: 'En la segunda parte, la salida no puede ser igual a la entrada.' };
+    const [, b1] = rango({ ini, fin });
+    if (b1 > 1440 || aMin(ini2) < b1) return { error: 'La segunda parte tiene que empezar después de que termine la primera.' };
+    partes.push([ini2, fin2]);
+  }
+  const turnos = partes.map(([ini, fin]) => ({ id: uid(), p, d, ini, fin }));
+  if (m !== 'novedad') return { turnos, marca: null };
+  const ai = v('aus_ini'), af = v('aus_fin');
+  if (!ai || !af || ai === af) return { error: 'Pon desde qué hora y hasta qué hora no está.' };
+  if (!turnos.map(rango).some(([x, y]) => { const [a, b] = ausEnTurno(rangoAus({ ini: ai, fin: af }), [x, y]); return x <= a && b <= y; })) return { error: 'Las horas en que no está tienen que caer dentro de su turno.' };
+  return { turnos, marca: { id: uid(), p, d, tipo: 'novedad', motivo, ini: ai, fin: af } };
+}
+
 function hojaTurno(t, dia, partido) {
   const nuevo = !t;
   const d0 = nuevo ? dia : t.d;
@@ -770,13 +964,16 @@ function semanaDe(p) {
   const filas = DIAS.map((n, d) => {
     const f = masDias(lunes, d);
     const del = lista.filter(t => t.d === d).map(rango).sort((x, y) => x[0] - y[0]);
-    del.forEach(([a, b]) => { total += b - a; });
+    total += lista.filter(t => t.d === d).reduce((s, t) => s + minTurno(semana, t), 0);
+    const m = marcaDe(semana, p.id, d);
     const partes = [];
     del.forEach(([a, b], i) => {
       if (i && a > del[i - 1][1]) partes.push(`<span class="desc">descansa ${hora(del[i - 1][1])} a ${hora(a)}</span>`);
       partes.push(`${hora(a)} a ${hora(b)}`);
     });
-    const que = partes.length ? partes.join('<br>') : `<span class="libre">${(p.noPuede || []).includes(d) ? 'No puede' : S.dias[d].cerrado ? 'Cerrado' : 'Libre'}</span>`;
+    if (m && m.ini) { const [a, b] = rangoAus(m); partes.push(`<span class="desc">no está ${hora(a)} a ${hora(b)}: ${esc(m.motivo)}</span>`); }
+    const que = del.length ? partes.join('<br>') : m ? `<span class="libre">${m.tipo === 'descanso' ? 'Descanso' : `Novedad: ${esc(m.motivo)}`}</span>`
+      : `<span class="libre">${(p.noPuede || []).includes(d) ? 'No puede' : S.dias[d].cerrado ? 'Cerrado' : 'Libre'}</span>`;
     return `<div class="sd-fila"><span class="sd-dia">${DIAS_C[d]} ${f.getDate()}</span><span>${que}</span></div>`;
   }).join('');
   return `<div class="su-semana"><p class="sd-tit">Su semana · ${textoSemana(semana)}<span>${horas(total)}</span></p>${filas}</div>`;
@@ -807,7 +1004,7 @@ function hojaSugerir() {
   if (!turnosDe(semana).length) { sugerir('cero'); return; }
   abrirHoja(`<h2>Sugerir horario</h2><p>Esta semana ya tiene turnos. ¿Qué hago?</p><div class="botones">
     <button class="btn prim" data-a="sug" data-m="completar">Completar lo que falta<br><small style="font-weight:400">Dejo tus turnos y lleno los huecos</small></button>
-    <button class="btn" data-a="sug" data-m="cero">Empezar de cero<br><small style="font-weight:400">Borro los turnos de esta semana y armo todo</small></button>
+    <button class="btn" data-a="sug" data-m="cero">Empezar de cero<br><small style="font-weight:400">Borro los turnos de esta semana y armo todo. Los descansos y novedades se quedan</small></button>
     <button class="btn texto" data-a="cerrar">Cancelar</button></div>`);
 }
 
@@ -818,6 +1015,31 @@ function cargarExcelJS() {
   if (window.ExcelJS) return Promise.resolve();
   return new Promise((ok, mal) => { const s = document.createElement('script'); s.src = 'exceljs.min.js'; s.onload = ok; s.onerror = mal; document.head.appendChild(s); });
 }
+// La grilla persona × día que comparten el Excel y la imagen.
+const COLOR_DESCANSO = '#E5E7EB', COLOR_NOVEDAD = '#FEF3E2';
+function celdasSemana(k) {
+  const lista = turnosDe(k);
+  return S.personas.map(p => {
+    let total = 0;
+    const dias = DIAS.map((n, d) => {
+      const del = lista.filter(t => t.p === p.id && t.d === d).sort((x, y) => aMin(x.ini) - aMin(y.ini)), m = marcaDe(k, p.id, d);
+      if (del.length) {
+        const lineas = [];
+        del.map(rango).forEach(([a, b], i, rs) => {
+          if (i && a > rs[i - 1][1]) lineas.push(`(descansa ${hora(rs[i - 1][1])} a ${hora(a)})`);
+          lineas.push(`${hora(a)} a ${hora(b)}`);
+        });
+        total += del.reduce((s, t) => s + minTurno(k, t), 0);
+        if (m && m.ini) { const [a, b] = rangoAus(m); lineas.push(`${m.motivo} ${hora(a)} a ${hora(b)}`); }
+        return { tipo: 'turno', lineas, color: colorTurno(del[0]) };
+      }
+      if (m) return m.tipo === 'descanso' ? { tipo: 'descanso', lineas: ['Descanso'], color: COLOR_DESCANSO } : { tipo: 'novedad', lineas: [m.motivo], color: COLOR_NOVEDAD };
+      return { tipo: 'libre', lineas: ['Libre'], color: null };
+    });
+    return { p, dias, total };
+  });
+}
+
 async function excel() {
   try { await cargarExcelJS(); }
   catch (e) { aviso('No se pudo preparar el Excel. Revisa que tengas internet y vuelve a intentar.'); return; }
@@ -842,28 +1064,21 @@ async function excel() {
   cab.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = relleno('#1E6B5E'); c.alignment = { vertical: 'middle', horizontal: 'center' }; c.border = bordes; });
 
   let r = 5;
-  for (const p of S.personas) {
-    const suyos = lista.filter(t => t.p === p.id);
+  for (const { p, dias, total } of celdasSemana(k)) {
     const fila = h.getRow(r);
     fila.getCell(1).value = p.nombre;
     fila.getCell(1).font = { bold: true };
-    let total = 0, lineasMax = 1;
-    for (let d = 0; d < 7; d++) {
+    let lineasMax = 1;
+    dias.forEach((x, d) => {
       const c = fila.getCell(d + 2);
-      const del = suyos.filter(t => t.d === d).sort((x, y) => aMin(x.ini) - aMin(y.ini));
-      if (del.length) {
-        const lineas = [];
-        del.map(rango).forEach(([a, b], i, rs) => {
-          total += b - a;
-          if (i && a > rs[i - 1][1]) lineas.push(`(descansa ${hora(rs[i - 1][1])} a ${hora(a)})`);
-          lineas.push(`${hora(a)} a ${hora(b)}`);
-        });
-        c.value = lineas.join('\n');
-        c.fill = relleno(colorTurno(del[0]));
-        lineasMax = Math.max(lineasMax, lineas.length);
-      } else { c.value = 'Libre'; c.font = { color: { argb: 'FF9AA5A0' }, italic: true }; }
+      c.value = x.lineas.join('\n');
+      if (x.color) c.fill = relleno(x.color);
+      if (x.tipo === 'libre') c.font = { color: { argb: 'FF9AA5A0' }, italic: true };
+      if (x.tipo === 'descanso') c.font = { color: { argb: 'FF5B6662' }, bold: true };
+      if (x.tipo === 'novedad') c.font = { color: { argb: 'FF9A4B05' }, bold: true };
+      lineasMax = Math.max(lineasMax, x.lineas.length);
       c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-    }
+    });
     fila.getCell(9).value = Math.round(total / 6) / 10;
     fila.getCell(9).numFmt = '0.0 "h"';
     fila.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
@@ -899,10 +1114,17 @@ async function excel() {
         return;
       }
       const [a, b] = rango(t), fr = franjaEn(a), p = persona(t.p);
-      const fila = pd.addRow([nomDia, p ? p.nombre : '', hora(a), hora(b), Math.round((b - a) / 6) / 10, fr ? fr.nombre : '']);
+      const fila = pd.addRow([nomDia, p ? p.nombre : '', hora(a), hora(b), Math.round(minTurno(k, t) / 6) / 10, fr ? fr.nombre : '']);
       fila.getCell(6).fill = relleno(fr ? fr.color : SIN_FRANJA);
       fila.eachCell(c => { c.border = bordes; });
     });
+    for (const p of S.personas) {
+      const m = marcaDe(k, p.id, d); if (!m) continue;
+      const [a, b] = m.ini ? rangoAus(m) : [];
+      const fila = pd.addRow([`${DIAS[d]} ${f.getDate()} ${MESES_C[f.getMonth()]}`, p.nombre, m.ini ? hora(a) : '', m.ini ? hora(b) : '', '', m.tipo === 'descanso' ? 'Descanso' : `Novedad: ${m.motivo}`]);
+      fila.getCell(6).fill = relleno(m.tipo === 'descanso' ? COLOR_DESCANSO : COLOR_NOVEDAD);
+      fila.eachCell(c => { c.border = bordes; c.font = { italic: true, color: { argb: 'FF5B6662' } }; });
+    }
   }
 
   const av = avisos(k);
@@ -916,6 +1138,59 @@ async function excel() {
   const buf = await wb.xlsx.writeBuffer();
   descargar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Horario ${MESES_TXT(k)}.xlsx`);
   aviso(av.some(a => a.n === 'rojo') ? 'Excel descargado. Ojo: todavía hay huecos sin cubrir (salen en la hoja "Cosas por revisar").' : 'Excel descargado. Lo encuentras en Descargas.');
+}
+// La misma grilla de la hoja Horario, dibujada para mandarla por WhatsApp.
+async function imagen() {
+  try { await document.fonts.ready; } catch (e) {}
+  const k = semana, lunes = deClave(k), filas = celdasSemana(k);
+  const W = 1400, X0 = 24, CN = 200, CD = 152, CT = 112, LH = 22, F = 'Atkinson Hyperlegible Next, system-ui, sans-serif';
+  const cv = document.createElement('canvas'), c = cv.getContext('2d');
+  const partir = (txt, ancho, fuente) => {
+    c.font = fuente; const out = []; let cur = '';
+    for (const w of String(txt).split(' ')) { const t = cur ? cur + ' ' + w : w; if (c.measureText(t).width > ancho && cur) { out.push(cur); cur = w; } else cur = t; }
+    if (cur) out.push(cur); return out;
+  };
+  const altos = filas.map(f => Math.max(1, ...f.dias.map(x => x.lineas.flatMap(l => partir(l, CD - 16, `15px ${F}`)).length)) * LH + 20);
+  const yTabla = 112, HC = 44;
+  const H = yTabla + HC + altos.reduce((a, b) => a + b, 0) + 40 + Math.ceil(S.franjas.length / 4) * 30 + 20;
+  cv.width = W; cv.height = H;
+  c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, W, H);
+  c.textBaseline = 'middle';
+  c.fillStyle = '#1E6B5E'; c.font = `bold 30px ${F}`; c.fillText(`Horario de cocina${S.lugar ? ' · ' + S.lugar : ''}`, X0, 40);
+  c.fillStyle = '#5B6662'; c.font = `18px ${F}`; c.fillText(`Semana del ${textoSemana(k)} de ${masDias(lunes, 6).getFullYear()}`, X0, 76);
+  const cols = [CN, ...DIAS.map(() => CD), CT], xs = cols.reduce((a, w) => [...a, a[a.length - 1] + w], [X0]);
+  const celda = (i, y, h, fondo) => { c.fillStyle = fondo; c.fillRect(xs[i], y, cols[i], h); c.strokeStyle = '#C9D1CD'; c.lineWidth = 1; c.strokeRect(xs[i] + .5, y + .5, cols[i], h); };
+  const texto = (i, y, h, lineas, color, fuente, centro = true) => {
+    c.fillStyle = color; c.font = fuente; c.textAlign = centro ? 'center' : 'left';
+    lineas.forEach((l, j) => c.fillText(l, centro ? xs[i] + cols[i] / 2 : xs[i] + 12, y + h / 2 + (j - (lineas.length - 1) / 2) * LH));
+    c.textAlign = 'left';
+  };
+  const cab = ['Persona', ...DIAS.map((n, d) => { const f = masDias(lunes, d); return `${n} ${f.getDate()} ${MESES_C[f.getMonth()]}`; }), 'Horas'];
+  cab.forEach((t, i) => { celda(i, yTabla, HC, '#1E6B5E'); texto(i, yTabla, HC, [t], '#FFFFFF', `bold 16px ${F}`); });
+  let y = yTabla + HC;
+  filas.forEach(({ p, dias, total }, r) => {
+    const h = altos[r];
+    celda(0, y, h, '#FFFFFF'); texto(0, y, h, partir(p.nombre, CN - 24, `bold 17px ${F}`), '#1C2321', `bold 17px ${F}`, false);
+    dias.forEach((x, d) => {
+      celda(d + 1, y, h, x.color ? x.color : '#FFFFFF');
+      const fuente = x.tipo === 'turno' ? `15px ${F}` : `bold 15px ${F}`;
+      texto(d + 1, y, h, x.lineas.flatMap(l => partir(l, CD - 16, fuente)), x.tipo === 'libre' ? '#9AA5A0' : x.tipo === 'novedad' ? '#9A4B05' : '#1C2321', fuente);
+    });
+    celda(8, y, h, '#FFFFFF');
+    texto(8, y, h, [horas(total)], total > S.maxSemana * 60 ? '#B42318' : '#1C2321', `bold 16px ${F}`);
+    y += h;
+  });
+  y += 30;
+  S.franjas.forEach((f, i) => {
+    const x = X0 + (i % 4) * 330, yy = y + Math.floor(i / 4) * 30;
+    c.fillStyle = f.color; c.fillRect(x, yy - 9, 18, 18); c.strokeStyle = '#C9D1CD'; c.strokeRect(x + .5, yy - 8.5, 18, 18);
+    c.fillStyle = '#5B6662'; c.font = `15px ${F}`; c.fillText(`${f.nombre}: ${hora(aMin(f.desde))} a ${hora(aMin(f.hasta))}`, x + 26, yy);
+  });
+  cv.toBlob(b => {
+    if (!b) { aviso('No se pudo crear la imagen. Intenta otra vez.'); return; }
+    descargar(b, `Horario ${MESES_TXT(k)}.png`);
+    aviso('Imagen descargada. La encuentras en Descargas o en tu galería.');
+  }, 'image/png');
 }
 function descargar(blob, nombre) {
   const url = URL.createObjectURL(blob);
@@ -942,6 +1217,14 @@ document.addEventListener('click', e => {
     }
     case 'quien': hojaQuien(+el.dataset.d); break;
     case 'nuevo': hojaTurno(null, +el.dataset.d); break;
+    case 'llenar': hojaDia(+el.dataset.d); break;
+    case 'pl-modo': case 'pl-todo': case 'pl-sub': {
+      const fila = el.closest('.pl-fila');
+      fila.dataset[{ 'pl-modo': 'm', 'pl-todo': 'todo', 'pl-sub': 'sub' }[a]] = a === 'pl-modo' ? el.dataset.m : el.dataset.v;
+      fila.querySelector('.error').hidden = true;
+      ajustarFila(fila);
+      break;
+    }
     case 'nuevo-partido': hojaTurno(null, +el.dataset.d, true); break;
     case 'editar': hojaTurno(turnosDe(semana).find(t => t.id === el.dataset.id)); break;
     case 'chip-dia': {
@@ -964,6 +1247,7 @@ document.addEventListener('click', e => {
         recordar();
         S.personas = S.personas.filter(x => x.id !== p.id);
         for (const k in S.semanas) S.semanas[k] = S.semanas[k].filter(t => t.p !== p.id);
+        for (const k in S.marcas) S.marcas[k] = S.marcas[k].filter(m => m.p !== p.id);
         guardar(); pintar(); aviso(`${p.nombre} ya no está en el equipo.`, true);
       }, true);
       break;
@@ -976,17 +1260,25 @@ document.addEventListener('click', e => {
     case 'sug': cerrarHoja(); sugerir(el.dataset.m); break;
     case 'copiar': {
       const ant = turnosDe(claveMas(semana, -7));
-      const hacer = () => { recordar(); S.semanas[semana] = ant.filter(t => persona(t.p)).map(t => ({ ...t, id: uid() })); guardar(); pintar(); aviso(`Copié ${S.semanas[semana].length} turnos de la semana pasada.`, true); };
-      if (turnosDe(semana).length) hojaConfirmar('¿Copiar la semana anterior?', 'Los turnos que ya tiene esta semana se reemplazan por los de la semana anterior.', 'Sí, copiar', hacer, false);
+      // Los descansos se repiten de semana a semana; las novedades son de su semana y no se copian.
+      const hacer = () => {
+        recordar();
+        S.semanas[semana] = ant.filter(t => persona(t.p)).map(t => ({ ...t, id: uid() }));
+        const novs = marcasDe(semana).filter(m => m.tipo === 'novedad');
+        S.marcas[semana] = [...novs, ...marcasDe(claveMas(semana, -7)).filter(m => m.tipo === 'descanso' && persona(m.p) && !novs.some(n => n.p === m.p && n.d === m.d)).map(m => ({ ...m, id: uid() }))];
+        guardar(); pintar(); aviso(`Copié ${S.semanas[semana].length} turnos de la semana pasada.`, true);
+      };
+      if (turnosDe(semana).length || marcasDe(semana).some(m => m.tipo === 'descanso')) hojaConfirmar('¿Copiar la semana anterior?', 'Los turnos y descansos que ya tiene esta semana se reemplazan por los de la semana anterior. Las novedades se quedan.', 'Sí, copiar', hacer, false);
       else hacer();
       break;
     }
     case 'vaciar':
-      hojaConfirmar('¿Borrar la semana?', 'Se borran todos los turnos de esta semana. Puedes deshacerlo justo después.', 'Sí, borrar todo', () => {
-        recordar(); S.semanas[semana] = []; guardar(); pintar(); aviso('Semana borrada.', true);
+      hojaConfirmar('¿Borrar la semana?', 'Se borran todos los turnos, descansos y novedades de esta semana. Puedes deshacerlo justo después.', 'Sí, borrar todo', () => {
+        recordar(); S.semanas[semana] = []; S.marcas[semana] = []; guardar(); pintar(); aviso('Semana borrada.', true);
       }, true);
       break;
     case 'excel': excel(); break;
+    case 'imagen': imagen(); break;
     case 'paso': {
       const [campo, id] = el.dataset.c.split(':'), n = +el.dataset.n;
       if (campo === 'f-min') { const f = S.franjas.find(x => x.id === id); f.min = Math.max(0, Math.min(20, f.min + n)); }
@@ -1070,6 +1362,29 @@ document.addEventListener('submit', e => {
     p.nombre = nombre;
     p.noPuede = [...f.querySelectorAll('.chip[aria-pressed=true]')].map(c => +c.dataset.d);
     guardar(); cerrarHoja(); pintar(); aviso('Guardado.');
+  }
+  if (tipo === 'dia') {
+    const d = +f.dataset.d, err = f.querySelector('#err');
+    const filas = [...f.querySelectorAll('.pl-fila')].map(fila => ({ fila, r: leerFila(fila, d) }));
+    let primera = null;
+    for (const { fila, r } of filas) {
+      const e = fila.querySelector('.error');
+      e.hidden = !r.error; e.textContent = r.error || '';
+      if (r.error && !primera) primera = fila;
+    }
+    if (primera) { err.textContent = 'Revisa lo que está marcado en rojo.'; err.hidden = false; primera.scrollIntoView({ block: 'center' }); return; }
+    const cambian = new Set(filas.filter(x => !x.r.igual).map(x => x.fila.dataset.p));
+    // Al venir de "Guardar y seguir", Deshacer vuelve a como estaba antes del primer día de la cadena.
+    const desde = f.dataset.desde === '' ? null : +f.dataset.desde;
+    if (desde == null) recordar();
+    S.semanas[semana] = [...turnosDe(semana).filter(t => !(t.d === d && cambian.has(t.p))), ...filas.flatMap(x => x.r.turnos || [])];
+    S.marcas[semana] = [...marcasDe(semana).filter(m => !(m.d === d && cambian.has(m.p))), ...filas.map(x => x.r.marca).filter(Boolean)];
+    guardar(); pintar();
+    const sig = e.submitter?.dataset.sig;
+    if (sig) { hojaDia(+sig, desde != null ? desde : d); document.querySelector('.hoja').scrollTop = 0; return; }
+    cerrarHoja();
+    aviso(desde != null ? `Listo: del ${DIAS[desde].toLowerCase()} al ${DIAS[d].toLowerCase()} guardados.` : `Listo: ${DIAS[d].toLowerCase()} guardado.`, true);
+    return;
   }
   if (tipo === 'turno') {
     const err = f.querySelector('#err');
